@@ -214,3 +214,14 @@ void TwinTask::notifyState(uint16_t dirtyCode){
 TaskHandle_t TwinTask::getTask(){
 	return xHandle;
 }
+
+/***
+* Get high water for stack
+* @return close to zero means overflow risk
+*/
+unsigned int TwinTask::getStakHighWater(){
+	if (xHandle != NULL)
+		return uxTaskGetStackHighWaterMark(xHandle);
+	else
+		return 0;
+}

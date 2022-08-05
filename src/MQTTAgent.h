@@ -154,6 +154,12 @@ public:
 	 */
 	virtual TaskHandle_t getTask();
 
+	/***
+	 * Get high water for stack
+	 * @return close to zero means overflow risk
+	 */
+	virtual unsigned int getStakHighWater();
+
 private:
 	/***
 	 * Initialisation code

@@ -1,7 +1,10 @@
 /*
  * TCPTransport.cpp
  *
- *  Created on: 5 Mar 2022
+ *  TCP Socket transport to provide as a transport layer to FreeRTOS MQTT Agent library
+ *
+ *
+ *  Created on: 31 Jul 2022
  *      Author: jondurrant
  */
 
@@ -10,16 +13,19 @@
 #include "pico/stdlib.h"
 #include <errno.h>
 
-#define LogError printf
 
-
+/***
+ * Constructor
+ */
 TCPTransport::TCPTransport(){
 	xHostDNSFound = xSemaphoreCreateBinary(  );
 }
 
-
+/***
+ * Destructor
+ */
 TCPTransport::~TCPTransport() {
-	// TODO Auto-generated destructor stub
+	// NOP
 }
 
 
@@ -31,17 +37,31 @@ uint32_t TCPTransport::getCurrentTime(){
 	return to_ms_since_boot(get_absolute_time ());
 }
 
+/***
+ * Send bytes through socket
+ * @param pNetworkContext - Network context object from MQTT
+ * @param pBuffer - Buffer to send from
+ * @param bytesToSend - number of bytes to send
+ * @return number of bytes sent
+ */
 int32_t TCPTransport::transSend(NetworkContext_t * pNetworkContext, const void * pBuffer, size_t bytesToSend){
 	uint32_t dataOut;
 
 	dataOut = write(xSock,(uint8_t *)pBuffer, bytesToSend);
 	if (dataOut != bytesToSend){
-		printf("Send failed %d\n", dataOut);
+		LogError(("Send failed %d\n", dataOut));
 	}
 	return dataOut;
 }
 
 
+/***
+ * Send
+ * @param pNetworkContext
+ * @param pBuffer
+ * @param bytesToRecv
+ * @return
+ */
 int32_t TCPTransport::transRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv){
 	int32_t dataIn=0;
 
@@ -60,19 +80,38 @@ int32_t TCPTransport::transRead(NetworkContext_t * pNetworkContext, void * pBuff
 }
 
 
+/***
+ * Static function to send data through socket from buffer
+ * @param pNetworkContext - Used to locate the TCPTransport object to use
+ * @param pBuffer - Buffer of data to send
+ * @param bytesToSend - number of bytes to send
+ * @return number of bytes sent
+ */
 int32_t TCPTransport::staticSend(NetworkContext_t * pNetworkContext, const void * pBuffer, size_t bytesToSend){
 	TCPTransport *t = (TCPTransport *)pNetworkContext->tcpTransport;
 	return t->transSend(pNetworkContext, pBuffer, bytesToSend);
 }
 
 
-
+/***
+ * Read data from network socket. Non blocking returns 0 if no data
+ * @param pNetworkContext - Used to locate the TCPTransport object to use
+ * @param pBuffer - Buffer to read into
+ * @param bytesToRecv - Maximum number of bytes to read
+ * @return number of bytes read. May be 0 as non blocking
+ * Negative number indicates error
+ */
 int32_t TCPTransport::staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv){
 	TCPTransport *t = (TCPTransport *)pNetworkContext->tcpTransport;
 	return t->transRead(pNetworkContext, pBuffer, bytesToRecv);
 }
 
-
+/***
+ * Connect to remote TCP Socket
+ * @param host - Host address
+ * @param port - Port number
+ * @return true on success
+ */
 bool TCPTransport::transConnect(const char * host, uint16_t port){
 	err_t res = dns_gethostbyname(host, &xHost, TCPTransport::dnsCB, this);
 
@@ -80,13 +119,18 @@ bool TCPTransport::transConnect(const char * host, uint16_t port){
 	xPort = port;
 
 	if (xSemaphoreTake(xHostDNSFound, TCP_TRANSPORT_WAIT) != pdTRUE){
-		LogError(("DNS Timeout on Connect"));
-		return false;
+		LogError(("DNS Timeout on Connect: %s, %d", host, res));
+		//return false;
 	}
 
 	return transConnect();
 }
 
+
+/***
+ * Connect to socket previously stored ip address and port number
+ * @return true if socket openned
+ */
 bool TCPTransport::transConnect(){
 	struct sockaddr_in serv_addr;
 
@@ -103,30 +147,25 @@ bool TCPTransport::transConnect(){
 	serv_addr.sin_port = htons(xPort);
 	memcpy(&serv_addr.sin_addr.s_addr, &xHost, sizeof(xHost));
 
-	printf("xhost %lx\n", xHost);
-	printf("xHost %s\n", ipaddr_ntoa(&xHost));
-
-	printf("Serv_addr: %x, %x, %lx\n",
-			serv_addr.sin_family,
-			serv_addr.sin_port,
-			serv_addr.sin_addr.s_addr);
-
-
 	int res = connect(xSock,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 	if (res < 0){
 		char *s = ipaddr_ntoa(&xHost);
-		printf("ERROR connecting %d to %s port %d\n",res, s, xPort);
-		printf("xhost %lx\n", xHost);
+		LogError(("ERROR connecting %d to %s port %d\n",res, s, xPort));
 		return false;
 	}
 
 	int nonblock=1;
 	ioctlsocket(xSock, FIONBIO, &nonblock);
 
-	printf("Connect success\n");
+	LogInfo(("Connect success\n"));
 	return true;
 }
 
+
+/***
+ * Get status of the socket
+ * @return int <0 is error
+ */
 int TCPTransport::status(){
 	int error = 0;
 	socklen_t len = sizeof (error);
@@ -134,19 +173,36 @@ int TCPTransport::status(){
 	return error;
 }
 
+/***
+ * Close the socket
+ * @return true on success
+ */
 bool TCPTransport::transClose(){
 	closesocket(xSock);
 	return true;
 }
 
+/***
+ * Call back function for the DNS lookup
+ * @param name - server name
+ * @param ipaddr - resulting IP address
+ * @param callback_arg - poiter to TCPTransport object
+ */
 void TCPTransport::dnsCB(const char *name, const ip_addr_t *ipaddr, void *callback_arg){
 	TCPTransport *self = (TCPTransport *) callback_arg;
 	self->dnsFound(name, ipaddr, callback_arg);
 }
 
+
+/***
+ * Called when DNS is returned
+ * @param name - server name
+ * @param ipaddr - ip address of server
+ * @param callback_arg - this TCPtransport object
+ */
 void TCPTransport::dnsFound(const char *name, const ip_addr_t *ipaddr, void *callback_arg){
 	memcpy(&xHost, ipaddr, sizeof(xHost));
 
-	printf("DNS Found %s copied to xHost %s\n", ipaddr_ntoa(ipaddr), ipaddr_ntoa(&xHost));
+	LogInfo(("DNS Found %s copied to xHost %s\n", ipaddr_ntoa(ipaddr), ipaddr_ntoa(&xHost)));
 	xSemaphoreGiveFromISR(xHostDNSFound, NULL );
 }
