@@ -16,6 +16,7 @@
 #include <FreeRTOS.h>
 #include <message_buffer.h>
 #include <task.h>
+#include <queue.h>
 #include <stdlib.h>
 #include "tiny-json.h"
 
@@ -25,6 +26,11 @@
 #ifndef STATE_MAX_MSG_LEN
 #define STATE_MAX_MSG_LEN 256
 #endif
+
+#ifndef TWIN_DIRTY_QUEUE_LEN
+#define TWIN_DIRTY_QUEUE_LEN 10
+#endif
+
 
 class TwinTask : public StateObserver {
 public:
@@ -104,6 +110,8 @@ protected:
 	//Json parsing structure buffer
 	json_t jsonBuf[MQTT_JSON_BUF_NUM];
 	unsigned int jsonBufLen = MQTT_JSON_BUF_NUM;
+
+	QueueHandle_t xNotifyDirtyQueue;
 };
 
 #endif /* SRC_TWINTASK_H_ */

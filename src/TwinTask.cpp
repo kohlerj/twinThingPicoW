@@ -11,7 +11,12 @@
 #include <cstring>
 
 TwinTask::TwinTask() {
-	// TODO Auto-generated constructor stub
+	xNotifyDirtyQueue = xQueueCreate( TWIN_DIRTY_QUEUE_LEN, sizeof(  uint16_t ) );
+
+	if( xNotifyDirtyQueue == NULL ){
+		LogError(("Can't create queue"));
+	}
+
 
 }
 
@@ -20,6 +25,9 @@ TwinTask::~TwinTask() {
 	if (updateTopic != NULL){
 		vPortFree(updateTopic);
 		updateTopic = NULL;
+	}
+	if (xNotifyDirtyQueue != NULL){
+		vQueueDelete(xNotifyDirtyQueue);
 	}
 }
 
@@ -77,7 +85,7 @@ void TwinTask::start(UBaseType_t priority){
 	if (xMessageBuffer != NULL){
 		xTaskCreate(
 			TwinTask::vTask,
-			"MQTTstate",
+			"TwinTask",
 			512,
 			( void * ) this,
 			priority,
@@ -115,6 +123,7 @@ void TwinTask::vTask( void * pvParameters ){
  * Internal function to run the task from within the object
  */
 void TwinTask::run(){
+	uint16_t dirtyCode;
 
 	for (;;){
 		if (xMessageBufferIsEmpty(xMessageBuffer) == pdTRUE){
@@ -127,6 +136,18 @@ void TwinTask::run(){
 				if (pState != NULL){
 					processMsg(xMsg);
 				}
+			}
+		}
+
+		if (xQueueReceive(xNotifyDirtyQueue,(void *)&dirtyCode,0) == pdTRUE){
+			if (mqttInterface != NULL){
+				unsigned int i;
+
+				i = pState->delta(xMsg, STATE_MAX_MSG_LEN, dirtyCode);
+				if (i == 0){
+					LogError(("Buf overrun"));
+				}
+				mqttInterface->pubToTopic(updateTopic, xMsg, strlen(xMsg));
 			}
 		}
 	}
@@ -195,15 +216,12 @@ void TwinTask::processJson(json_t const* json){
  * @param dirtyCode - Representation of item changed within state. Used to pull back delta
  */
 void TwinTask::notifyState(uint16_t dirtyCode){
-	if (mqttInterface != NULL){
-		unsigned int i;
-
-		i = pState->delta(xMsg, STATE_MAX_MSG_LEN, dirtyCode);
-		if (i == 0){
-			LogError(("Buf overrun"));
-		}
-		mqttInterface->pubToTopic(updateTopic, xMsg, strlen(xMsg));
-	}
+	//Queue dirty code to be handled from within the task
+	BaseType_t xHigherPriorityTaskWoken;
+	xQueueSendToBackFromISR(xNotifyDirtyQueue,
+	                   &dirtyCode,
+	                   &xHigherPriorityTaskWoken
+	                );
 }
 
 
