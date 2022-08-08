@@ -282,7 +282,6 @@ private:
 
 	//Storage for publishing message
 	MQTTAgentCommandInfo_t xCommandInfo;
-	MQTTPublishInfo_t xPublishInfo;
 
 	//Storage for subscribing to message
 	MQTTAgentCommandInfo_t xSubCommandInfo;

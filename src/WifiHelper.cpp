@@ -35,6 +35,7 @@ WifiHelper::~WifiHelper() {
  */
 bool WifiHelper::getIPAddress(uint8_t *ip) {
 	memcpy(ip, netif_ip4_addr(&cyw43_state.netif[0]), 4);
+	return true;
 }
 
 /***
@@ -72,7 +73,7 @@ bool WifiHelper::getMACAddressStr(char *macStr) {
 }
 
 bool WifiHelper::syncRTCwithSNTP() {
-
+	return false;
 }
 
 

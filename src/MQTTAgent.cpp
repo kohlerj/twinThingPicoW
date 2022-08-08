@@ -364,29 +364,56 @@ bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
 
 	MQTTStatus_t status;
 
+
+	// Fill command
 	xCommandInfo.cmdCompleteCallback = MQTTAgent::publishCmdCompleteCb;
 	xCommandInfo.blockTimeMs = 500;
+	MQTTAgentCommandContext_t* pCmdCBContext = (MQTTAgentCommandContext_t*) pvPortMalloc(sizeof(MQTTAgentCommandContext_t));
+	if (pCmdCBContext == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	pCmdCBContext->topic = (char *)pvPortMalloc(strlen(topic)+1);
+	if (pCmdCBContext->topic == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	strcpy(pCmdCBContext->topic,topic);
+	pCmdCBContext->payload = pvPortMalloc(payloadLen);
+	if (pCmdCBContext->payload == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	memcpy(pCmdCBContext->payload, payload, payloadLen);
+	xCommandInfo.pCmdCompleteCallbackContext = pCmdCBContext;
+
 
 	// Fill the information for publish operation.
-	xPublishInfo.qos = MQTTQoS1;
-	xPublishInfo.pTopicName = topic;
-	xPublishInfo.topicNameLength = strlen( xPublishInfo.pTopicName );
-	xPublishInfo.pPayload = payload;
-	xPublishInfo.payloadLength = payloadLen;
+	MQTTPublishInfo_t * pPublishInfo = &(pCmdCBContext->publishInfo);
+	pPublishInfo->qos = MQTTQoS1;
+	pPublishInfo->pTopicName = pCmdCBContext->topic;
+	pPublishInfo->topicNameLength = strlen(pCmdCBContext->topic);
+	pPublishInfo->pPayload = pCmdCBContext->payload;
+	pPublishInfo->payloadLength = payloadLen;
 
-	LogDebug(("Publishing(%d, %d) %.*s:%.*s\n",
-			xPublishInfo.topicNameLength,
-			xPublishInfo.payloadLength,
-			xPublishInfo.topicNameLength,
-			xPublishInfo.pTopicName,
-			xPublishInfo.payloadLength,
-			xPublishInfo.pPayload
-			));
+	/*
+	LogInfo(("Publishing(%d, %d) %.*s:%.*s\n",
+				pPublishInfo->topicNameLength,
+				pPublishInfo->payloadLength,
+				pPublishInfo->topicNameLength,
+				pPublishInfo->pTopicName,
+				pPublishInfo->payloadLength,
+				pPublishInfo->pPayload
+				));
+				*/
 
-	status = MQTTAgent_Publish( &xGlobalMqttAgentContext, &xPublishInfo, &xCommandInfo );
+
+	status = MQTTAgent_Publish( &xGlobalMqttAgentContext, pPublishInfo, &xCommandInfo );
 	if (status != MQTTSuccess ){
 		LogError(("publish error %d", status));
 		return false;
+	} else {
+		//LogInfo(("Publish Complete"));
 	}
 
 	if (pObserver != NULL){
@@ -529,7 +556,7 @@ bool MQTTAgent::MQTTsub(){
  */
 void MQTTAgent::subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
 	                             MQTTAgentReturnInfo_t * pReturnInfo ){
-	LogDebug(("Subscription complete\n"));
+	//LogDebug(("Subscription complete\n"));
 }
 
 /***
@@ -539,8 +566,13 @@ void MQTTAgent::subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallback
 */
 void MQTTAgent::publishCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
             MQTTAgentReturnInfo_t * pReturnInfo ){
-	LogDebug(("Publish complete\n"));
+	//LogDebug(("Publish complete\n"));
 
+	//printf("\n********************\n");
+	//printf("Published to %s %s\n",pCmdCallbackContext->topic, (char *)pCmdCallbackContext->payload);
+	vPortFree(pCmdCallbackContext->topic);
+	vPortFree(pCmdCallbackContext->payload);
+	vPortFree(pCmdCallbackContext);
 }
 
 /***
