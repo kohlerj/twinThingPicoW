@@ -35,7 +35,6 @@ target_link_libraries(twinThingPicoW INTERFACE
 	json_maker 
 	tiny_json
 	FreeRTOS-Kernel-Heap4 # FreeRTOS kernel and dynamic heap
-    FREERTOS_PORT
 	coreMQTT 
 	coreMQTTAgent
 	)
