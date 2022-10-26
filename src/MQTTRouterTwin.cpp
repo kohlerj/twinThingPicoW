@@ -24,25 +24,27 @@ MQTTRouterTwin::~MQTTRouterTwin() {
 	}
 }
 
-
-MQTTRouterTwin::MQTTRouterTwin(const char * id, MQTTInterface *mi){
-	init(id, mi);
+/***
+ * Initialise the object give the MQTT Interface
+ * @param mi = MQTT Interface
+ */
+MQTTRouterTwin::MQTTRouterTwin( MQTTInterface *mi){
+	init(mi);
 }
 
 /***
- * Initialise the object give the Id and MQTT Interface
- * @param id = string ID of the Thing
+ * Initialise the object give the  MQTT Interface
  * @param mi = MQTT Interface
  */
-void MQTTRouterTwin::init(const char * id, MQTTInterface *mi){
-	MQTTRouterPing::init(id, mi);
+void MQTTRouterTwin::init( MQTTInterface *mi){
+	MQTTRouterPing::init(mi);
 
 	if (pSetTopic == NULL){
 		pSetTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingSet(id)
+				MQTTTopicHelper::lenThingSet(mi->getId())
 				);
 		if (pSetTopic != NULL){
-			MQTTTopicHelper::getThingSet(pSetTopic, id);
+			MQTTTopicHelper::getThingSet(pSetTopic, mi->getId());
 		} else {
 			LogError( ("Unable to allocate topic") );
 		}
@@ -50,10 +52,10 @@ void MQTTRouterTwin::init(const char * id, MQTTInterface *mi){
 
 	if (pGetTopic == NULL){
 		pGetTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingGet(id)
+				MQTTTopicHelper::lenThingGet(mi->getId())
 				);
 		if (pGetTopic != NULL){
-			MQTTTopicHelper::getThingGet(pGetTopic, id);
+			MQTTTopicHelper::getThingGet(pGetTopic, mi->getId());
 		} else {
 			LogError( ("Unable to allocate topic") );
 		}
@@ -66,6 +68,10 @@ void MQTTRouterTwin::init(const char * id, MQTTInterface *mi){
  */
 void MQTTRouterTwin::subscribe(MQTTInterface *interface){
 	MQTTRouterPing::subscribe(interface);
+
+	if (pGetTopic == NULL){
+		init(interface);
+	}
 
 	interface->subToTopic(pSetTopic, 1);
 	interface->subToTopic(pGetTopic, 1);
@@ -83,6 +89,10 @@ void MQTTRouterTwin::subscribe(MQTTInterface *interface){
 void MQTTRouterTwin::route(const char *topic, size_t topicLen, const void * payload,
 		size_t payloadLen, MQTTInterface *interface){
 	MQTTRouterPing::route(topic, topicLen, payload, payloadLen, interface);
+
+	if (pGetTopic == NULL){
+		init(interface);
+	}
 
 	if (pTwin == NULL){
 		LogError(("Twin not defined"));
@@ -111,6 +121,5 @@ void MQTTRouterTwin::route(const char *topic, size_t topicLen, const void * payl
  */
 void MQTTRouterTwin::setTwin(TwinTask *twin){
 	pTwin = twin;
-	pTwin->setMQTTInterface(pInterface);
 }
 

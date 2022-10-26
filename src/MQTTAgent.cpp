@@ -15,10 +15,8 @@
 #include "freertos_agent_message.h"
 #include "freertos_command_pool.h"
 
-const char * MQTTAgent::WILLTOPICFORMAT = "TNG/%s/LC";
 const char * MQTTAgent::WILLPAYLOAD = "{'online':0}";
 const char * MQTTAgent::ONLINEPAYLOAD = "{'online':1}";
-
 
 
 /***
@@ -42,11 +40,6 @@ MQTTAgent::~MQTTAgent() {
 	if (pOnlineTopic != NULL){
 		vPortFree(pOnlineTopic);
 		pOnlineTopic = NULL;
-	}
-
-	if (pKeepAliveTopic != NULL){
-		vPortFree(pKeepAliveTopic);
-		pKeepAliveTopic = NULL;
 	}
 }
 
@@ -74,11 +67,13 @@ MQTTStatus_t MQTTAgent::init(){
 											  sizeof( MQTTAgentCommand_t * ),
 											  xStaticQueueStorageArea,
 											  &xStaticQueueStructure );
+
 	if (xCommandQueue.queue == NULL) {
 		LogDebug(("MQTTAgent::mqttInit ERROR Queue not initialised"));
 		return MQTTIllegalState;
 	}
 	messageInterface.pMsgCtx = &xCommandQueue;
+
 
 	/* Initialize the task pool. */
 	Agent_InitializePool();
@@ -143,6 +138,7 @@ void MQTTAgent::incomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
  *
  */
 void MQTTAgent::credentials(const char * user, const char * passwd, const char * id){
+
 	if (strcmp(user, "MAC") == 0){
 		WifiHelper::getMACAddressStr(xMacStr);
 		this->pUser = xMacStr;
@@ -181,14 +177,6 @@ void MQTTAgent::credentials(const char * user, const char * passwd, const char *
 		}
 	}
 
-	if (pKeepAliveTopic == NULL){
-		pKeepAliveTopic = (char *)pvPortMalloc( MQTTTopicHelper::lenLifeCycleTopic(this->pId, MQTT_TOPIC_LIFECYCLE_KEEP_ALIVE));
-		if (pKeepAliveTopic != NULL){
-			MQTTTopicHelper::genLifeCycleTopic(pKeepAliveTopic, this->pId, MQTT_TOPIC_LIFECYCLE_KEEP_ALIVE);
-		} else {
-			LogError( ("Unable to allocate LC topic") );
-		}
-	}
 }
 
 /***
@@ -198,10 +186,9 @@ void MQTTAgent::credentials(const char * user, const char * passwd, const char *
  * @param ssl - unused
  * @return
  */
-bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon, bool ssl){
+bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon){
 	this->pTarget = target;
 	this->xPort = port;
-	this->xSsl = ssl;
 	this->xRecon = recon;
 	setConnState(TCPReq);
 	LogDebug(("TCP Requested\n"));
@@ -273,13 +260,15 @@ void MQTTAgent::start(UBaseType_t priority){
 			 break;
 		 }
 		 case MQTTReq: {
-			 MQTTsub();
 			 setConnState(MQTTConned);
 			 break;
 		 }
 		 case MQTTConned: {
 			 setConnState(Online);
-			 pubToTopic(pOnlineTopic, ONLINEPAYLOAD, strlen(ONLINEPAYLOAD), 1);
+			 pubToTopic(pOnlineTopic, ONLINEPAYLOAD, strlen(ONLINEPAYLOAD), 1, false);
+			 if (pRouter != NULL){
+				 pRouter->subscribe(this);
+			 }
 			 break;
 		 }
 		 case Online:{
@@ -353,75 +342,7 @@ const char * MQTTAgent::getId(){
 	return pId;
 }
 
-/***
-* Publish message to topic
-* @param topic - zero terminated string. Copied by function
-* @param payload - payload as pointer to memory block
-* @param payloadLen - length of memory block
-*/
-bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
-	size_t payloadLen, const uint8_t QoS){
 
-	MQTTStatus_t status;
-
-
-	// Fill command
-	xCommandInfo.cmdCompleteCallback = MQTTAgent::publishCmdCompleteCb;
-	xCommandInfo.blockTimeMs = 500;
-	MQTTAgentCommandContext_t* pCmdCBContext = (MQTTAgentCommandContext_t*) pvPortMalloc(sizeof(MQTTAgentCommandContext_t));
-	if (pCmdCBContext == NULL){
-		LogError(("malloc failed"));
-		return false;
-	}
-	pCmdCBContext->topic = (char *)pvPortMalloc(strlen(topic)+1);
-	if (pCmdCBContext->topic == NULL){
-		LogError(("malloc failed"));
-		return false;
-	}
-	strcpy(pCmdCBContext->topic,topic);
-	pCmdCBContext->payload = pvPortMalloc(payloadLen);
-	if (pCmdCBContext->payload == NULL){
-		LogError(("malloc failed"));
-		return false;
-	}
-	memcpy(pCmdCBContext->payload, payload, payloadLen);
-	xCommandInfo.pCmdCompleteCallbackContext = pCmdCBContext;
-
-
-	// Fill the information for publish operation.
-	MQTTPublishInfo_t * pPublishInfo = &(pCmdCBContext->publishInfo);
-	pPublishInfo->qos = MQTTQoS1;
-	pPublishInfo->pTopicName = pCmdCBContext->topic;
-	pPublishInfo->topicNameLength = strlen(pCmdCBContext->topic);
-	pPublishInfo->pPayload = pCmdCBContext->payload;
-	pPublishInfo->payloadLength = payloadLen;
-
-	/*
-	LogInfo(("Publishing(%d, %d) %.*s:%.*s\n",
-				pPublishInfo->topicNameLength,
-				pPublishInfo->payloadLength,
-				pPublishInfo->topicNameLength,
-				pPublishInfo->pTopicName,
-				pPublishInfo->payloadLength,
-				pPublishInfo->pPayload
-				));
-				*/
-
-
-	status = MQTTAgent_Publish( &xGlobalMqttAgentContext, pPublishInfo, &xCommandInfo );
-	if (status != MQTTSuccess ){
-		LogError(("publish error %d", status));
-		return false;
-	} else {
-		//LogInfo(("Publish Complete"));
-	}
-
-	if (pObserver != NULL){
-		pObserver->MQTTSend();
-	}
-
-	return true;
-}
 
 /***
 * Close connection
@@ -430,22 +351,6 @@ void MQTTAgent::close(){
 	xTcpTrans.transClose();
 	xRecon=false;
 	setConnState(Offline);
-}
-
-/***
-* Route a message to the router object
-* @param topic - non zero terminated string
-* @param topicLen - topic length
-* @param payload - raw memory
-* @param payloadLen - payload length
-*/
-void MQTTAgent::route(const char * topic, size_t topicLen, const void * payload, size_t payloadLen){
-	if (pRouter != NULL){
-		pRouter->route(topic, topicLen, payload, payloadLen, this);
-	}
-	if (pObserver != NULL){
-		pObserver->MQTTRecv();
-	}
 }
 
 
@@ -489,11 +394,11 @@ MQTTStatus_t  MQTTAgent::MQTTconn(){
 	xConnectInfo.passwordLength= ( uint16_t ) strlen(pPasswd);
 
 	xWillInfo.qos = MQTTQoS1;
-	sprintf(pWillTopic, MQTTAgent::WILLTOPICFORMAT, pId);
 	xWillInfo.pTopicName = pWillTopic;
 	xWillInfo.topicNameLength = strlen( xWillInfo.pTopicName );
 	xWillInfo.pPayload = MQTTAgent::WILLPAYLOAD;
 	xWillInfo.payloadLength = strlen( MQTTAgent::WILLPAYLOAD );
+	xWillInfo.retain = false;
 
 
 	/* Set MQTT keep-alive period. It is the responsibility of the application
@@ -519,121 +424,6 @@ MQTTStatus_t  MQTTAgent::MQTTconn(){
 
 
 
-/***
-* Get the router object handling all received messages
-* @return
-*/
-MQTTRouter* MQTTAgent::getRouter()  {
-	return pRouter;
-}
-
-/***
-* Set the rotuer object
-* @param pRouter
-*/
-void MQTTAgent::setRouter( MQTTRouter *pRouter) {
-	this->pRouter = pRouter;
-}
-
-/***
- * Subscribe to routers list
- * @return true if succeeds
- */
-bool MQTTAgent::MQTTsub(){
-
-	if (pRouter != NULL){
-		xCurrentSub = 0;
-		pRouter->subscribe(this);
-		return true;
-	}
-	return false;
-}
-
-/***
- * Call back function nwhen subscribe completes
- * @param pCmdCallbackContext
- * @param pReturnInfo
- */
-void MQTTAgent::subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
-	                             MQTTAgentReturnInfo_t * pReturnInfo ){
-	//LogDebug(("Subscription complete\n"));
-}
-
-/***
-* Call back function when Publish completes
-* @param pCmdCallbackContext
-* @param pReturnInfo
-*/
-void MQTTAgent::publishCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
-            MQTTAgentReturnInfo_t * pReturnInfo ){
-	//LogDebug(("Publish complete\n"));
-
-	//printf("\n********************\n");
-	//printf("Published to %s %s\n",pCmdCallbackContext->topic, (char *)pCmdCallbackContext->payload);
-	vPortFree(pCmdCallbackContext->topic);
-	vPortFree(pCmdCallbackContext->payload);
-	vPortFree(pCmdCallbackContext);
-}
-
-/***
- * Subscribe to a topic, mesg will be sent to router object
- * @param topic
- * @param QoS
- * @return
- */
-bool MQTTAgent::subToTopic(const char * topic,  const uint8_t QoS){
-	MQTTStatus_t status = MQTTNoDataAvailable ;
-
-	// Fill the command information.
-	xSubCommandInfo.cmdCompleteCallback = MQTTAgent::subscribeCmdCompleteCb;
-	xSubCommandInfo.blockTimeMs = 500;
-	//xSubCommandInfo.pCmdCompleteCallbackContext = this;
-
-	uint8_t subNum = xCurrentSub++;
-	if (xCurrentSub > MAXSUBS){
-		LogError(("OVERFLOW"));
-	}
-	MQTTSubscribeInfo_t      *pSubInfo = &xSubscribeInfo[subNum];
-	MQTTAgentSubscribeArgs_t *pSubArgs = &xSubscribeArgs[subNum];
-
-
-	// Fill the information for topic filters to subscribe to.
-	switch(QoS){
-	case 0:{
-		pSubInfo->qos = MQTTQoS0;
-		break;
-	}
-	case 1:{
-		pSubInfo->qos = MQTTQoS1;
-		break;
-	}
-	case 2:{
-		pSubInfo->qos = MQTTQoS2;
-		break;
-	}
-	default:{
-		pSubInfo->qos = MQTTQoS1;
-		break;
-	}
-	}
-	pSubInfo->pTopicFilter = topic;
-	pSubInfo->topicFilterLength = strlen(topic);
-	pSubArgs->pSubscribeInfo = pSubInfo;
-	pSubArgs->numSubscriptions = 1U;
-
-	status = MQTTAgent_Subscribe( &xGlobalMqttAgentContext, pSubArgs, &xSubCommandInfo );
-	if (status != MQTTSuccess){
-		LogError(("Sub error %d", status));
-		return false;
-	}
-
-	if (pObserver != NULL){
-		pObserver->MQTTSend();
-	}
-
-	return true;
-
-}
 
 /***
  * Connect to MQTT hub
@@ -722,3 +512,212 @@ unsigned int MQTTAgent::getStakHighWater(){
 	else
 		return 0;
 }
+
+/***
+ * Publish message to topic
+ * @param topic - zero terminated string. Copied by function
+ * @param payload - payload as pointer to memory block
+ * @param payloadLen - length of memory block
+ * @param QoS - quality of service - 0, 1 or 2
+ * @param retain - ask broker to retain message
+ */
+bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
+	size_t payloadLen, const uint8_t QoS, bool retain){
+
+	MQTTStatus_t status;
+
+
+	LogInfo(("Pub %s to %s", payload, topic));
+
+	// Fill command
+	MQTTAgentCommandInfo_t xCommandInfo;
+	xCommandInfo.cmdCompleteCallback = MQTTAgent::publishCmdCompleteCb;
+	xCommandInfo.blockTimeMs = 500;
+
+	MQTTAgentCommandContext_t* pCmdCBContext = (MQTTAgentCommandContext_t*) pvPortMalloc(sizeof(MQTTAgentCommandContext_t));
+	if (pCmdCBContext == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+
+	pCmdCBContext->topic = (char *)pvPortMalloc(strlen(topic)+1);
+	if (pCmdCBContext->topic == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	strcpy(pCmdCBContext->topic,topic);
+
+	pCmdCBContext->payload = pvPortMalloc(payloadLen);
+	if (pCmdCBContext->payload == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	memcpy(pCmdCBContext->payload, payload, payloadLen);
+	xCommandInfo.pCmdCompleteCallbackContext = pCmdCBContext;
+
+
+	// Fill the information for publish operation.
+	MQTTPublishInfo_t * pPublishInfo = &(pCmdCBContext->publishInfo);
+	pPublishInfo->qos = MQTTQoS1;
+	pPublishInfo->pTopicName = pCmdCBContext->topic;
+	pPublishInfo->topicNameLength = strlen(pCmdCBContext->topic);
+	pPublishInfo->pPayload = pCmdCBContext->payload;
+	pPublishInfo->payloadLength = payloadLen;
+	pPublishInfo->retain = retain;
+
+	status = MQTTAgent_Publish( &xGlobalMqttAgentContext, pPublishInfo, &xCommandInfo );
+	if (status != MQTTSuccess ){
+		LogError(("publish error %d", status));
+		return false;
+	} else {
+		//LogInfo(("Publish Complete"));
+	}
+
+	if (pObserver != NULL){
+		pObserver->MQTTSend();
+	}
+
+	return true;
+}
+
+/***
+* Call back function when Publish completes
+* @param pCmdCallbackContext
+* @param pReturnInfo
+*/
+void MQTTAgent::publishCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
+            MQTTAgentReturnInfo_t * pReturnInfo ){
+	vPortFree(pCmdCallbackContext->topic);
+	vPortFree(pCmdCallbackContext->payload);
+	vPortFree(pCmdCallbackContext);
+}
+
+
+/***
+ * Subscribe to a topic, mesg will be sent to router object
+ * @param topic
+ * @param QoS
+ * @return
+ */
+bool MQTTAgent::subToTopic(const char * topic,  const uint8_t QoS){
+	MQTTStatus_t status = MQTTNoDataAvailable ;
+
+	// Fill the command information.
+	MQTTAgentCommandInfo_t subCommandInfo;
+	subCommandInfo.cmdCompleteCallback = MQTTAgent::subscribeCmdCompleteCb;
+	subCommandInfo.blockTimeMs = 500;
+
+	MQTTSubscribeInfo_t *pSubInfo = (MQTTSubscribeInfo_t*)
+		pvPortMalloc(sizeof(MQTTSubscribeInfo_t));
+	if (pSubInfo == NULL){
+		LogError(("malloc failed"));
+		return false;
+	};
+	MQTTAgentSubscribeArgs_t *pSubArgs = (MQTTAgentSubscribeArgs_t*)
+		pvPortMalloc(sizeof(MQTTAgentSubscribeArgs_t));
+	if (pSubArgs == NULL){
+		LogError(("malloc failed"));
+		return false;
+	};
+
+	MQTTAgentCommandContext_t* pCmdCBContext = (MQTTAgentCommandContext_t*) pvPortMalloc(sizeof(MQTTAgentCommandContext_t));
+	if (pCmdCBContext == NULL){
+		LogError(("malloc failed"));
+		return false;
+	}
+	pCmdCBContext->subArgs = pSubArgs;
+	subCommandInfo.pCmdCompleteCallbackContext = pCmdCBContext;
+
+
+	// Fill the information for topic filters to subscribe to.
+	switch(QoS){
+	case 0:{
+		pSubInfo->qos = MQTTQoS0;
+		break;
+	}
+	case 1:{
+		pSubInfo->qos = MQTTQoS1;
+		break;
+	}
+	case 2:{
+		pSubInfo->qos = MQTTQoS2;
+		break;
+	}
+	default:{
+		pSubInfo->qos = MQTTQoS1;
+		break;
+	}
+	}
+	pSubInfo->pTopicFilter = topic;
+	pSubInfo->topicFilterLength = strlen(topic);
+	pSubArgs->pSubscribeInfo = pSubInfo;
+	pSubArgs->numSubscriptions = 1U;
+
+	status = MQTTAgent_Subscribe( &xGlobalMqttAgentContext, pSubArgs, &subCommandInfo );
+	if (status != MQTTSuccess){
+		LogError(("Sub error %d", status));
+		return false;
+	}
+
+	if (pObserver != NULL){
+		pObserver->MQTTSend();
+	}
+
+	return true;
+
+}
+
+/***
+ * Call back function nwhen subscribe completes
+ * @param pCmdCallbackContext
+ * @param pReturnInfo
+ */
+void MQTTAgent::subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
+	                             MQTTAgentReturnInfo_t * pReturnInfo ){
+	//LogDebug(("Subscription complete\n"));
+
+	vPortFree(pCmdCallbackContext->subArgs->pSubscribeInfo);
+	vPortFree(pCmdCallbackContext->subArgs);
+	vPortFree(pCmdCallbackContext);
+}
+
+
+/***
+* Get the router object handling all received messages
+* @return
+*/
+MQTTRouter* MQTTAgent::getRouter()  {
+	return pRouter;
+}
+
+/***
+* Set the rotuer object
+* @param pRouter
+*/
+void MQTTAgent::setRouter( MQTTRouter *pRouter) {
+	this->pRouter = pRouter;
+
+	if (xConnState == Online){
+		pRouter->subscribe(this);
+	}
+}
+
+
+
+
+/***
+* Route a message to the router object
+* @param topic - non zero terminated string
+* @param topicLen - topic length
+* @param payload - raw memory
+* @param payloadLen - payload length
+*/
+void MQTTAgent::route(const char * topic, size_t topicLen, const void * payload, size_t payloadLen){
+	if (pRouter != NULL){
+		pRouter->route(topic, topicLen, payload, payloadLen, this);
+	}
+	if (pObserver != NULL){
+		pObserver->MQTTRecv();
+	}
+}
+

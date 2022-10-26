@@ -14,7 +14,7 @@
 
 #define PING "PING"
 #define PONG "PONG"
-#define ALL "ALL"
+#define ALL  "ALL"
 
 
 /***
@@ -25,11 +25,10 @@ MQTTRouterPing::MQTTRouterPing() {
 
 /***
  * Constructor providing Id for the Thing and MQTT Interface
- * @param id - string ID of the thing
  * @param mi - MQTT Interface
  */
-MQTTRouterPing::MQTTRouterPing(const char * id, MQTTInterface *mi) {
-	init(id, mi);
+MQTTRouterPing::MQTTRouterPing(MQTTInterface *mi) {
+	init(mi);
 }
 
 /***
@@ -37,16 +36,13 @@ MQTTRouterPing::MQTTRouterPing(const char * id, MQTTInterface *mi) {
  * @param id = string ID of the Thing
  * @param mi = MQTT Interface
  */
-void MQTTRouterPing::init(const char * id, MQTTInterface *mi) {
-	MQTTRouter::init(id, mi);
-
-
+void MQTTRouterPing::init(MQTTInterface *mi) {
 	if (pingTopic == NULL){
 		pingTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingTopic(this->id, PING)
+				MQTTTopicHelper::lenThingTopic(mi->getId(), PING)
 				);
 		if (pingTopic != NULL){
-			MQTTTopicHelper::genThingTopic(pingTopic, this->id, PING);
+			MQTTTopicHelper::genThingTopic(pingTopic, mi->getId(), PING);
 		} else {
 			LogError( ("Unable to allocate PING topic") );
 		}
@@ -54,10 +50,10 @@ void MQTTRouterPing::init(const char * id, MQTTInterface *mi) {
 
 	if (pongTopic == NULL){
 		pongTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingTopic(this->id, PONG)
+				MQTTTopicHelper::lenThingTopic(mi->getId(), PONG)
 				);
 		if (pongTopic != NULL){
-			MQTTTopicHelper::genThingTopic(pongTopic, this->id, PONG);
+			MQTTTopicHelper::genThingTopic(pongTopic, mi->getId(), PONG);
 		} else {
 			LogError( ("Unable to allocate PONG topic") );
 		}
@@ -101,27 +97,23 @@ MQTTRouterPing::~MQTTRouterPing() {
  */
 void MQTTRouterPing::route(const char *topic, size_t topicLen, const void * payload, size_t payloadLen, MQTTInterface *interface){
 
-	LogDebug( ("MQTTRouterPing(%.*s[%d]: %.*s[%d])\n",topicLen,
+	LogInfo( ("MQTTRouterPing(%.*s[%d]: %.*s[%d])\n",topicLen,
 			topic, topicLen, payloadLen, (char *)payload, payloadLen) );
+
+	if (allPingTopic == NULL){
+		init(interface);
+	}
 
 	if (pingTask == NULL){
 		return;
 	}
 	if (strlen(pingTopic) == topicLen){
 		if (memcmp(topic, pingTopic, topicLen)==0){
-
-			/*
-			interface->pubToTopic(pongTopic, payload, payloadLen);
-			*/
 			pingTask->addPing(payload, payloadLen);
 		}
 	}
 	if (strlen(allPingTopic) == topicLen){
 		if (memcmp(topic, allPingTopic, topicLen)==0){
-
-			/*
-			interface->pubToTopic(pongTopic, payload, payloadLen);
-			*/
 			pingTask->addPing(payload, payloadLen);
 		}
 	}
@@ -132,7 +124,9 @@ void MQTTRouterPing::route(const char *topic, size_t topicLen, const void * payl
  * @param interface
  */
 void MQTTRouterPing::subscribe(MQTTInterface *interface){
-
+	if (allPingTopic == NULL){
+		init(interface);
+	}
 	interface->subToTopic(pingTopic, 1);
 	interface->subToTopic(allPingTopic, 1);
 }
@@ -141,10 +135,11 @@ void MQTTRouterPing::subscribe(MQTTInterface *interface){
  * Set Task to use for action
  * @param p
  */
-void MQTTRouterPing::setPingTask(MQTTPingTask *p){
+void MQTTRouterPing::setPingTask(MQTTPingTask *p, MQTTInterface *mi){
 	pingTask = p;
+	init(mi);
 	pingTask->setPongTopic(pongTopic);
-	pingTask->setInterface(pInterface);
+	pingTask->setInterface(mi);
 }
 
 

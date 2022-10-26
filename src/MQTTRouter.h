@@ -13,20 +13,11 @@
 
 
 #include "MQTTInterface.h"
-#include "MQTTPingTask.h"
 
 class MQTTRouter {
 public:
 	MQTTRouter();
 	virtual ~MQTTRouter();
-
-	/***
-	 * Initialise the object give the Id and MQTT Interface
-	 * @param id = string ID of the Thing
-	 * @param mi = MQTT Interface
-	 */
-	virtual void init(const char * id, MQTTInterface *mi);
-
 
 	/***
 	 * Use interface to set subscriptions for the router
@@ -44,10 +35,6 @@ public:
 	  * @param interface - MQTT interface to use for any response publication
 	  */
 	 virtual void route(const char *topic, size_t topicLen, const void * payload, size_t payloadLen, MQTTInterface *interface)=0;
-
-protected:
-	 MQTTInterface *pInterface = NULL;
-	 const char * id = NULL;
 
 
 };

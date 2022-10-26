@@ -32,6 +32,7 @@ target_link_libraries(twinThingPicoW INTERFACE
 	pico_stdlib 
 	pico_unique_id
 	hardware_adc
+	hardware_rtc
 	json_maker 
 	tiny_json
 	FreeRTOS-Kernel-Heap4 # FreeRTOS kernel and dynamic heap

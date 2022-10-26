@@ -25,10 +25,9 @@ public:
 
 	/***
 	 * Constructor providing Id for the Thing and MQTT Interface
-	 * @param id - string ID of the thing
 	 * @param mi - MQTT Interface
 	 */
-	MQTTRouterPing(const char * id, MQTTInterface *mi);
+	MQTTRouterPing(MQTTInterface *mi);
 
 	/***
 	 * Destructor
@@ -37,16 +36,16 @@ public:
 
 	/***
 	 * Initialise the object give the Id and MQTT Interface
-	 * @param id = string ID of the Thing
 	 * @param mi = MQTT Interface
 	 */
-	virtual void init(const char * id, MQTTInterface *mi);
+	virtual void init(MQTTInterface *mi);
 
 	/***
 	 * Set Task to use for action
-	 * @param p
+	 * @param p = Ping Task
+	 * @param mi = MQTT Interface
 	 */
-	virtual void setPingTask(MQTTPingTask *p);
+	virtual void setPingTask(MQTTPingTask *p, MQTTInterface *mi);
 
 	/***
 	 * Use the interface to setup all the subscriptions

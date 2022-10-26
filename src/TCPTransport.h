@@ -14,7 +14,7 @@
 
 #include "MQTTConfig.h"
 #include "core_mqtt.h"
-#include "core_mqtt_agent.h"
+//#include "core_mqtt_agent.h"
 
 extern "C" {
 #include <FreeRTOS.h>
@@ -107,6 +107,12 @@ public:
 	 */
 	static int32_t staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv);
 
+	/***
+	 * Print the buffer in hex and plain text for debugging
+	 */
+	void debugPrintBuffer(const char *title, const void * pBuffer, size_t bytes);
+
+
 private:
 
 	/***
@@ -130,11 +136,6 @@ private:
 	 * @param callback_arg - this TCPtransport object
 	 */
 	void dnsFound(const char *name, const ip_addr_t *ipaddr, void *callback_arg);
-
-	/***
-	 * Print the buffer in hex and plain text for debugging
-	 */
-	void debugPrintBuffer(const char *title, const void * pBuffer, size_t bytes);
 
 	//Socket number
 	int xSock = 0;

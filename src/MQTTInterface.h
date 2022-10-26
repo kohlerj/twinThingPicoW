@@ -30,16 +30,10 @@ public:
 	 * @param payload - payload as pointer to memory block
 	 * @param payloadLen - length of memory block
 	 * @param QoS, QoS level of publish (0-2)
+	 * @param retain - Ask broker to retain message
 	 */
 	virtual bool pubToTopic(const char * topic, const void * payload,
-			size_t payloadLen, const uint8_t QoS=0)=0;
-	/***
-	 * Subscribe to a topic, mesg will be sent to router object
-	 * @param topic
-	 * @param QoS
-	 * @return
-	 */
-	virtual bool subToTopic(const char * topic, const uint8_t QoS=0)=0;
+			size_t payloadLen, const uint8_t QoS=0, bool retain=false)=0;
 
 	/***
 	 * Close connection
@@ -47,13 +41,12 @@ public:
 	virtual void close()=0;
 
 	/***
-	 * Route a message to the router object
-	 * @param topic - non zero terminated string
-	 * @param topicLen - topic length
-	 * @param payload - raw memory
-	 * @param payloadLen - payload length
+	 * Subscribe to a topic, mesg will be sent to router object
+	 * @param topic
+	 * @param QoS
+	 * @return
 	 */
-	virtual void route(const char * topic, size_t topicLen, const void * payload, size_t payloadLen)=0;
+	virtual bool subToTopic(const char * topic, const uint8_t QoS=0)=0;
 
 
 };

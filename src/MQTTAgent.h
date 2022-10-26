@@ -14,11 +14,11 @@
 #include "FreeRTOS.h"
 #include "core_mqtt.h"
 #include "core_mqtt_agent.h"
-#include "MQTTInterface.h"
-#include "MQTTRouter.h"
 #include "MQTTTopicHelper.h"
 #include "TCPTransport.h"
 #include "MQTTAgentObserver.h"
+#include "MQTTInterface.h"
+#include "MQTTRouter.h"
 
 extern "C" {
 #include "freertos_agent_message.h"
@@ -59,6 +59,7 @@ public:
 
 	/***
 	 * Set credentials
+	 * Setting any credentials to MAC will result in the MAC address being used
 	 * @param user - string pointer. Not copied so pointer must remain valid
 	 * @param passwd - string pointer. Not copied so pointer must remain valid
 	 * @param id - string pointer. Not copied so pointer must remain valid. I
@@ -74,7 +75,7 @@ public:
 	 * @param ssl - unused
 	 * @return
 	 */
-	 bool mqttConnect(const char * target, uint16_t  port, bool recon=false, bool ssl=false);
+	 bool mqttConnect(const char * target, uint16_t  port, bool recon=false);
 
 	/***
 	 * Start the task running
@@ -95,51 +96,9 @@ public:
 	virtual const char * getId();
 
 	/***
-	 * Publish message to topic
-	 * @param topic - zero terminated string. Copied by function
-	 * @param payload - payload as pointer to memory block
-	 * @param payloadLen - length of memory block
-	 */
-	virtual bool pubToTopic(const char * topic,  const void * payload,
-			size_t payloadLen, const uint8_t QoS=0);
-
-	/***
-	 * Subscribe to a topic, mesg will be sent to router object
-	 * @param topic
-	 * @param QoS
-	 * @return
-	 */
-	virtual bool subToTopic(const char * topic, const uint8_t QoS=0);
-
-
-	/***
 	 * Close connection
 	 */
 	virtual void close();
-
-	/***
-	 * Route a message to the router object
-	 * @param topic - non zero terminated string
-	 * @param topicLen - topic length
-	 * @param payload - raw memory
-	 * @param payloadLen - payload length
-	 */
-	virtual void route(const char * topic, size_t topicLen, const void * payload, size_t payloadLen);
-
-
-	/***
-	 * Get the router object handling all received messages
-	 * @return
-	 */
-	MQTTRouter* getRouter() ;
-
-
-	/***
-	 * Set the router object
-	 * Router objects handle any message arriving
-	 * @param pRouter
-	 */
-	void setRouter( MQTTRouter *pRouter = NULL);
 
 	/***
 	 * Set a single observer to get call back on state changes
@@ -160,24 +119,54 @@ public:
 	 */
 	virtual unsigned int getStakHighWater();
 
+	/***
+	 * Publish message to topic
+	 * @param topic - zero terminated string. Copied by function
+	 * @param payload - payload as pointer to memory block
+	 * @param payloadLen - length of memory block
+	 * @param QoS - quality of service - 0, 1 or 2
+	 * @param retain - ask broker to retain message
+	 */
+	virtual bool pubToTopic(const char * topic,  const void * payload,
+			size_t payloadLen, const uint8_t QoS=0, bool retain = false);
+
+	/***
+	 * Subscribe to a topic, mesg will be sent to router object
+	 * @param topic
+	 * @param QoS
+	 * @return
+	 */
+	virtual bool subToTopic(const char * topic, const uint8_t QoS=0);
+
+	/***
+	 * Get the router object handling all received messages
+	 * @return
+	 */
+	MQTTRouter* getRouter() ;
+
+
+	/***
+	 * Set the router object
+	 * Router objects handle any message arriving
+	 * @param pRouter
+	 */
+	void setRouter( MQTTRouter *pRouter = NULL);
+
+	/***
+	 * Route a message to the router object
+	 * @param topic - non zero terminated string
+	 * @param topicLen - topic length
+	 * @param payload - raw memory
+	 * @param payloadLen - payload length
+	 */
+	virtual void route(const char * topic, size_t topicLen, const void * payload, size_t payloadLen);
+
 private:
 	/***
 	 * Initialisation code
 	 * @return
 	 */
 	MQTTStatus_t init();
-
-
-	/***
-	 * Callback on when new data is received
-	 * @param pMqttAgentContext
-	 * @param packetId
-	 * @param pxPublishInfo
-	 */
-	static void incomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
-            uint16_t packetId,
-            MQTTPublishInfo_t * pxPublishInfo );
-
 
 	/***
 	 * Task object running to manage MQTT interface
@@ -194,12 +183,14 @@ private:
             MQTTAgentReturnInfo_t * pReturnInfo );
 
 	/***
-	 * Call back function nwhen subscribe completes
-	 * @param pCmdCallbackContext
-	 * @param pReturnInfo
+	 * Callback on when new data is received
+	 * @param pMqttAgentContext
+	 * @param packetId
+	 * @param pxPublishInfo
 	 */
-	static void subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
-	                             MQTTAgentReturnInfo_t * pReturnInfo );
+	static void incomingPublishCallback( MQTTAgentContext_t * pMqttAgentContext,
+	                                        uint16_t packetId,
+	                                        MQTTPublishInfo_t * pxPublishInfo );
 
 	/***
 	 * Call back function when Publish completes
@@ -208,6 +199,14 @@ private:
 	 */
 	static void publishCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
             MQTTAgentReturnInfo_t * pReturnInfo );
+
+	/***
+	 * Call back function nwhen subscribe completes
+	 * @param pCmdCallbackContext
+	 * @param pReturnInfo
+	 */
+	static void subscribeCmdCompleteCb( MQTTAgentCommandContext_t * pCmdCallbackContext,
+		                             MQTTAgentReturnInfo_t * pReturnInfo );
 
 
 	/***
@@ -220,12 +219,6 @@ private:
 	 * @return
 	 */
 	MQTTStatus_t MQTTconn();
-
-	/***
-	 * Subscribe to routers list
-	 * @return true if succeeds
-	 */
-	bool MQTTsub();
 
 	/***
 	 * Perform TCP Connection
@@ -250,11 +243,9 @@ private:
 	const char * pTarget = NULL;
 	char xMacStr[14];
 	uint16_t xPort = 1883 ;
-	bool xSsl = false;
 	bool xRecon = false;
 
 	//MQTT Will object
-	static const char * WILLTOPICFORMAT;
 	char *pWillTopic = NULL;
 	static const char * WILLPAYLOAD;
 	MQTTPublishInfo_t xWillInfo;
@@ -262,8 +253,6 @@ private:
 	//Topics and payload for connection
 	static const char * ONLINEPAYLOAD;
 	char *pOnlineTopic = NULL;
-	char *pKeepAliveTopic = NULL;
-
 
 	//Router object to handle all sub messages
 	MQTTRouter * pRouter = NULL;
@@ -278,16 +267,6 @@ private:
 
 	//State machine state
 	MQTTState xConnState = Offline;
-
-
-	//Storage for publishing message
-	MQTTAgentCommandInfo_t xCommandInfo;
-
-	//Storage for subscribing to message
-	MQTTAgentCommandInfo_t xSubCommandInfo;
-	MQTTSubscribeInfo_t xSubscribeInfo[MAXSUBS] ;
-	MQTTAgentSubscribeArgs_t xSubscribeArgs [MAXSUBS];
-	uint8_t xCurrentSub = 0;
 
 
 	//Single Observer
