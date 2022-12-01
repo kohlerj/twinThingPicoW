@@ -543,6 +543,7 @@ bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
 	pCmdCBContext->topic = (char *)pvPortMalloc(strlen(topic)+1);
 	if (pCmdCBContext->topic == NULL){
 		LogError(("malloc failed"));
+		vPortFree(pCmdCBContext);
 		return false;
 	}
 	strcpy(pCmdCBContext->topic,topic);
@@ -550,6 +551,8 @@ bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
 	pCmdCBContext->payload = pvPortMalloc(payloadLen);
 	if (pCmdCBContext->payload == NULL){
 		LogError(("malloc failed"));
+		vPortFree(pCmdCBContext);
+		vPortFree(pCmdCBContext->payload);
 		return false;
 	}
 	memcpy(pCmdCBContext->payload, payload, payloadLen);
@@ -568,6 +571,7 @@ bool MQTTAgent::pubToTopic(const char * topic, const void * payload,
 	status = MQTTAgent_Publish( &xGlobalMqttAgentContext, pPublishInfo, &xCommandInfo );
 	if (status != MQTTSuccess ){
 		LogError(("publish error %d", status));
+		MQTTAgent::publishCmdCompleteCb(pCmdCBContext , NULL);
 		return false;
 	} else {
 		//LogInfo(("Publish Complete"));
