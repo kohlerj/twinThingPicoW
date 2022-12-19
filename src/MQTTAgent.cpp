@@ -620,12 +620,15 @@ bool MQTTAgent::subToTopic(const char * topic,  const uint8_t QoS){
 	MQTTAgentSubscribeArgs_t *pSubArgs = (MQTTAgentSubscribeArgs_t*)
 		pvPortMalloc(sizeof(MQTTAgentSubscribeArgs_t));
 	if (pSubArgs == NULL){
+		vPortFree(pSubInfo);
 		LogError(("malloc failed"));
 		return false;
 	};
 
 	MQTTAgentCommandContext_t* pCmdCBContext = (MQTTAgentCommandContext_t*) pvPortMalloc(sizeof(MQTTAgentCommandContext_t));
 	if (pCmdCBContext == NULL){
+		vPortFree(pSubInfo);
+		vPortFree(pSubArgs);
 		LogError(("malloc failed"));
 		return false;
 	}
@@ -659,6 +662,7 @@ bool MQTTAgent::subToTopic(const char * topic,  const uint8_t QoS){
 
 	status = MQTTAgent_Subscribe( &xGlobalMqttAgentContext, pSubArgs, &subCommandInfo );
 	if (status != MQTTSuccess){
+		MQTTAgent::subscribeCmdCompleteCb(pCmdCBContext, NULL);
 		LogError(("Sub error %d", status));
 		return false;
 	}
