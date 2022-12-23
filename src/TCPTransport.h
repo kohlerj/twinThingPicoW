@@ -108,6 +108,16 @@ public:
 	static int32_t staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv);
 
 	/***
+	 * Write a vector of values to the socket.
+	 * @param pNetworkContext - Used to locate the TCPTransport object to use
+	 * @param pIoVec - Vector of data blocks
+	 * @param ioVecCount - number of items in vector
+	 * @return
+	 */
+	static int32_t staticWriteEv(NetworkContext_t *pNetworkContext,
+			TransportOutVector_t *pIoVec, size_t ioVecCount);
+
+	/***
 	 * Print the buffer in hex and plain text for debugging
 	 */
 	void debugPrintBuffer(const char *title, const void * pBuffer, size_t bytes);

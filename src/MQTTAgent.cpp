@@ -48,7 +48,6 @@ MQTTAgent::~MQTTAgent() {
  * @return
  */
 MQTTStatus_t MQTTAgent::init(){
-	TransportInterface_t xTransport;
 	MQTTStatus_t xReturn;
 	MQTTFixedBuffer_t xFixedBuffer = { .pBuffer = xNetworkBuffer, .size = MQTT_AGENT_NETWORK_BUFFER_SIZE };
 
@@ -84,6 +83,7 @@ MQTTStatus_t MQTTAgent::init(){
 	xTransport.pNetworkContext = &xNetworkContext;
 	xTransport.send = TCPTransport::staticSend;
 	xTransport.recv = TCPTransport::staticRead;
+	xTransport.writev = TCPTransport::staticWriteEv;
 
 
 	/* Initialize MQTT library. */

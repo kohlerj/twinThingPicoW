@@ -112,6 +112,29 @@ int32_t TCPTransport::staticRead(NetworkContext_t * pNetworkContext, void * pBuf
 }
 
 /***
+ * Write a vector of values to the socket.
+ * @param pNetworkContext - Used to locate the TCPTransport object to use
+ * @param pIoVec - Vector of data blocks
+ * @param ioVecCount - number of items in vector
+ * @return
+ */
+int32_t TCPTransport::staticWriteEv(NetworkContext_t *pNetworkContext,
+		TransportOutVector_t *pIoVec, size_t ioVecCount){
+
+	int32_t sendResult = 0;
+	for (size_t i =0; i < ioVecCount; i++) {
+		int32_t r = TCPTransport::staticSend( pNetworkContext,
+								pIoVec[i].iov_base,
+								pIoVec[i].iov_len );
+		if (r < 0){
+			return r;
+		}
+		sendResult += r;
+	}
+	return sendResult;
+}
+
+/***
  * Connect to remote TCP Socket
  * @param host - Host address
  * @param port - Port number

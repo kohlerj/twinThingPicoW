@@ -269,8 +269,13 @@ private:
 	MQTTState xConnState = Offline;
 
 
+	//Transport interface
+	TransportInterface_t xTransport;
+
 	//Single Observer
 	MQTTAgentObserver *pObserver = NULL;
+
+
 
 };
 
