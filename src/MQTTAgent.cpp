@@ -152,6 +152,11 @@ void MQTTAgent::credentials(const char * user, const char * passwd, const char *
 		this->pPasswd = passwd;
 	}
 
+	//Zero length password is null
+	if (strlen(passwd) == 0){
+		this->pPasswd = NULL;
+	}
+
 	if (id != NULL){
 		this->pId = id;
 	} else {
