@@ -25,7 +25,7 @@ const char * MQTTAgent::ONLINEPAYLOAD = "{'online':1}";
  * @param eth - Ethernet helper for communicating to hardware
  */
 MQTTAgent::MQTTAgent() {
-	//NOP
+	pTrans = & xTcpTrans;
 }
 
 /***
@@ -41,6 +41,15 @@ MQTTAgent::~MQTTAgent() {
 		vPortFree(pOnlineTopic);
 		pOnlineTopic = NULL;
 	}
+}
+
+/***
+ * Set transport to use for connection. This might be TLS
+ * If this is not called default TCP transport is used
+ * @param t - Transport object to use for connection
+ */
+void MQTTAgent::setTransport(Transport *t){
+	pTrans = t;
 }
 
 /***
@@ -79,11 +88,11 @@ MQTTStatus_t MQTTAgent::init(){
 
 	// Fill in Transforp interface
 	xNetworkContext.mqttTask = NULL;
-	xNetworkContext.tcpTransport = &xTcpTrans;
+	xNetworkContext.tcpTransport = pTrans;
 	xTransport.pNetworkContext = &xNetworkContext;
-	xTransport.send = TCPTransport::staticSend;
-	xTransport.recv = TCPTransport::staticRead;
-	xTransport.writev = TCPTransport::staticWriteEv;
+	xTransport.send = Transport::staticSend;
+	xTransport.recv = Transport::staticRead;
+	xTransport.writev = Transport::staticWriteEv;
 
 
 	/* Initialize MQTT library. */
@@ -91,7 +100,7 @@ MQTTStatus_t MQTTAgent::init(){
 							  &messageInterface,
 							  &xFixedBuffer,
 							  &xTransport,
-							  TCPTransport::getCurrentTime,
+							  Transport::getCurrentTime,
 							  MQTTAgent::incomingPublishCallback,
 							  /* Context to pass into the callback. Passing the pointer to subscription array. */
 							  this );
@@ -191,7 +200,7 @@ void MQTTAgent::credentials(const char * user, const char * passwd, const char *
  * @param ssl - unused
  * @return
  */
-bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon){
+bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon, bool ssl){
 	this->pTarget = target;
 	this->xPort = port;
 	this->xRecon = recon;
@@ -289,7 +298,7 @@ void MQTTAgent::start(UBaseType_t priority){
 				// Need to close socket connection.
 				//Platform_DisconnectNetwork( mqttAgentContext.mqttContext.transportInterface.pNetworkContext );
 				 LogDebug(("MQTT Closed\n"));
-				 xTcpTrans.transClose();
+				 pTrans->transClose();
 				 setConnState(Offline);
 			 }
 			 else if( status == MQTTSuccess )
@@ -300,7 +309,7 @@ void MQTTAgent::start(UBaseType_t priority){
 				status = MQTT_Disconnect( &( xGlobalMqttAgentContext.mqttContext ) );
 				//assert( status == MQTTSuccess );
 				//Platform_DisconnectNetwork( mqttAgentContext.mqttContext.transportInterface.pNetworkContext );
-				xTcpTrans.transClose();
+				pTrans->transClose();
 				setConnState(Offline);
 			 }
 			 else
@@ -314,7 +323,7 @@ void MQTTAgent::start(UBaseType_t priority){
 		 }
 		 case MQTTRecon:{
 			 if (WifiHelper::isJoined()){
-				 xTcpTrans.transClose();
+				 pTrans->transClose();
 			 }
 			 vTaskDelay(MQTT_RECON_DELAY);
 			 setConnState(TCPReq);
@@ -353,7 +362,7 @@ const char * MQTTAgent::getId(){
 * Close connection
 */
 void MQTTAgent::close(){
-	xTcpTrans.transClose();
+	pTrans->transClose();
 	xRecon=false;
 	setConnState(Offline);
 }
@@ -436,7 +445,7 @@ MQTTStatus_t  MQTTAgent::MQTTconn(){
  */
 bool MQTTAgent::TCPconn(){
 	LogDebug(("TCP Connect...."));
-	if (xTcpTrans.transConnect(pTarget, xPort)){
+	if (pTrans->transConnect(pTarget, xPort)){
 		setConnState(TCPConned);
 		LogDebug(("TCP Connected"));
 		return true;
@@ -463,7 +472,7 @@ void MQTTAgent::setObserver(MQTTAgentObserver *obs){
  */
 void MQTTAgent::stop(){
 	if (xConnState != Offline){
-		xTcpTrans.transClose();
+		pTrans->transClose();
 		setConnState(Offline);
 	}
 	if (xHandle != NULL){

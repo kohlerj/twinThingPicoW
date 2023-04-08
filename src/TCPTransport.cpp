@@ -9,12 +9,11 @@
  */
 
 #include "TCPTransport.h"
+
 #include <stdlib.h>
 #include "pico/stdlib.h"
 #include <errno.h>
 
-#include <stdio.h>
-#define DEBUG_LINE 25
 
 
 /***
@@ -85,54 +84,7 @@ int32_t TCPTransport::transRead(NetworkContext_t * pNetworkContext, void * pBuff
 }
 
 
-/***
- * Static function to send data through socket from buffer
- * @param pNetworkContext - Used to locate the TCPTransport object to use
- * @param pBuffer - Buffer of data to send
- * @param bytesToSend - number of bytes to send
- * @return number of bytes sent
- */
-int32_t TCPTransport::staticSend(NetworkContext_t * pNetworkContext, const void * pBuffer, size_t bytesToSend){
-	TCPTransport *t = (TCPTransport *)pNetworkContext->tcpTransport;
-	return t->transSend(pNetworkContext, pBuffer, bytesToSend);
-}
 
-
-/***
- * Read data from network socket. Non blocking returns 0 if no data
- * @param pNetworkContext - Used to locate the TCPTransport object to use
- * @param pBuffer - Buffer to read into
- * @param bytesToRecv - Maximum number of bytes to read
- * @return number of bytes read. May be 0 as non blocking
- * Negative number indicates error
- */
-int32_t TCPTransport::staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv){
-	TCPTransport *t = (TCPTransport *)pNetworkContext->tcpTransport;
-	return t->transRead(pNetworkContext, pBuffer, bytesToRecv);
-}
-
-/***
- * Write a vector of values to the socket.
- * @param pNetworkContext - Used to locate the TCPTransport object to use
- * @param pIoVec - Vector of data blocks
- * @param ioVecCount - number of items in vector
- * @return
- */
-int32_t TCPTransport::staticWriteEv(NetworkContext_t *pNetworkContext,
-		TransportOutVector_t *pIoVec, size_t ioVecCount){
-
-	int32_t sendResult = 0;
-	for (size_t i =0; i < ioVecCount; i++) {
-		int32_t r = TCPTransport::staticSend( pNetworkContext,
-								pIoVec[i].iov_base,
-								pIoVec[i].iov_len );
-		if (r < 0){
-			return r;
-		}
-		sendResult += r;
-	}
-	return sendResult;
-}
 
 /***
  * Connect to remote TCP Socket
@@ -236,50 +188,5 @@ void TCPTransport::dnsFound(const char *name, const ip_addr_t *ipaddr, void *cal
 }
 
 
-/***
- * Print the buffer in hex and plain text for debugging
- */
-void TCPTransport::debugPrintBuffer(const char *title, const void * pBuffer, size_t bytes){
-	size_t count =0;
-	size_t lineEnd=0;
-	const uint8_t *pBuf = (uint8_t *)pBuffer;
 
-	printf("DEBUG: %s of size %d\n", title, bytes);
-
-	while (count < bytes){
-		lineEnd = count + DEBUG_LINE;
-		if (lineEnd > bytes){
-			lineEnd = bytes;
-		}
-
-		//Print HEX DUMP
-		for (size_t i=count; i < lineEnd; i++){
-			if (pBuf[i] <= 0x0F){
-				printf("0%X ", pBuf[i]);
-			} else {
-				printf("%X ", pBuf[i]);
-			}
-		}
-
-		//Pad for short lines
-		size_t pad = (DEBUG_LINE - (lineEnd - count)) * 3;
-		for (size_t i=0; i < pad; i++){
-			printf(" ");
-		}
-
-		//Print Plain Text
-		for (size_t i=count; i < lineEnd; i++){
-			if ((pBuf[i] >= 0x20) && (pBuf[i] <= 0x7e)){
-				printf("%c", pBuf[i]);
-			} else {
-				printf(".");
-			}
-		}
-
-		printf("\n");
-
-		count = lineEnd;
-
-	}
-}
 

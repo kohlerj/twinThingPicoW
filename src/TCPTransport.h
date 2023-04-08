@@ -14,7 +14,8 @@
 
 #include "MQTTConfig.h"
 #include "core_mqtt.h"
-//#include "core_mqtt_agent.h"
+#include "Transport.h"
+
 
 extern "C" {
 #include <FreeRTOS.h>
@@ -29,7 +30,7 @@ extern "C" {
 }
 
 
-class TCPTransport {
+class TCPTransport : public Transport {
 public:
 	/***
 	 * Constructor
@@ -88,34 +89,6 @@ public:
 	 */
 	static uint32_t getCurrentTime();
 
-	/***
-	 * Static function to send data through socket from buffer
-	 * @param pNetworkContext - Used to locate the TCPTransport object to use
-	 * @param pBuffer - Buffer of data to send
-	 * @param bytesToSend - number of bytes to send
-	 * @return number of bytes sent
-	 */
-	static int32_t staticSend(NetworkContext_t * pNetworkContext, const void * pBuffer, size_t bytesToSend);
-
-	/***
-	 * Read data from network socket. Non blocking returns 0 if no data
-	 * @param pNetworkContext - Used to locate the TCPTransport object to use
-	 * @param pBuffer - Buffer to read into
-	 * @param bytesToRecv - Maximum number of bytes to read
-	 * @return number of bytes read. May be 0 as non blocking
-	 * Negative number indicates error
-	 */
-	static int32_t staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv);
-
-	/***
-	 * Write a vector of values to the socket.
-	 * @param pNetworkContext - Used to locate the TCPTransport object to use
-	 * @param pIoVec - Vector of data blocks
-	 * @param ioVecCount - number of items in vector
-	 * @return
-	 */
-	static int32_t staticWriteEv(NetworkContext_t *pNetworkContext,
-			TransportOutVector_t *pIoVec, size_t ioVecCount);
 
 	/***
 	 * Print the buffer in hex and plain text for debugging

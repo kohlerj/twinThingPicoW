@@ -5,6 +5,7 @@
 add_library(twinThingPicoW INTERFACE)
 target_sources(twinThingPicoW INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/MQTTAgent.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/src/Transport.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/TCPTransport.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/WifiHelper.cpp
     

@@ -15,6 +15,7 @@
 #include "core_mqtt.h"
 #include "core_mqtt_agent.h"
 #include "MQTTTopicHelper.h"
+#include "Transport.h"
 #include "TCPTransport.h"
 #include "MQTTAgentObserver.h"
 #include "MQTTInterface.h"
@@ -58,6 +59,13 @@ public:
 	virtual ~MQTTAgent();
 
 	/***
+	 * Set transport to use for connection. This might be TLS
+	 * If this is not called default TCP transport is used
+	 * @param t - Transport object to use for connection
+	 */
+	void setTransport(Transport *t);
+
+	/***
 	 * Set credentials
 	 * Setting any credentials to MAC will result in the MAC address being used
 	 * @param user - string pointer. Not copied so pointer must remain valid
@@ -75,7 +83,7 @@ public:
 	 * @param ssl - unused
 	 * @return
 	 */
-	 bool mqttConnect(const char * target, uint16_t  port, bool recon=false);
+	 bool mqttConnect(const char * target, uint16_t  port, bool recon=false, bool ssl = false);
 
 	/***
 	 * Start the task running
@@ -235,6 +243,7 @@ private:
 
 	NetworkContext_t xNetworkContext;
 	TCPTransport xTcpTrans;
+	Transport *pTrans = NULL;
 
 	//MQTT Server and credentials
 	const char * pUser;
