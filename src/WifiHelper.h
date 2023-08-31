@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include "pico/stdlib.h"
 
+#include "lwip/ip_addr.h"
+
 #ifndef WIFI_RETRIES
 #define WIFI_RETRIES 3
 #endif
@@ -101,7 +103,7 @@ public:
 	 * Add SNTP server - can call to add multiple servers
 	 * @param server - string name of server. Should remain in scope
 	 */
-	static void sntpAddServer(const char *server);
+	static void sntpAddServer(const ip_addr_t* server);
 
 	/***
 	 * Start syncing Pico time with SNTP

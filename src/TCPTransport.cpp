@@ -51,7 +51,7 @@ int32_t TCPTransport::transSend(NetworkContext_t * pNetworkContext, const void *
 
 	//debugPrintBuffer("TCPTransport::transSend", pBuffer, bytesToSend);
 
-	dataOut = write(xSock,(uint8_t *)pBuffer, bytesToSend);
+	dataOut = lwip_write(xSock,(uint8_t *)pBuffer, bytesToSend);
 	if (dataOut != bytesToSend){
 		LogError(("Send failed %d\n", dataOut));
 	}
@@ -69,7 +69,7 @@ int32_t TCPTransport::transSend(NetworkContext_t * pNetworkContext, const void *
 int32_t TCPTransport::transRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv){
 	int32_t dataIn=0;
 
-	dataIn = read(xSock, (uint8_t *)pBuffer, bytesToRecv);
+	dataIn = lwip_read(xSock, (uint8_t *)pBuffer, bytesToRecv);
 
 	if (dataIn < 0){
 		if (errno == 0){

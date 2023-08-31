@@ -175,8 +175,8 @@ void WifiHelper::sntpSetTimezone(int8_t offsetHours, int8_t offsetMinutes){
  * Add SNTP server - can call to add multiple servers
  * @param server - string name of server. Should remain in scope
  */
-void WifiHelper::sntpAddServer(const char *server){
-	sntp_setservername(WifiHelper::sntpServerCount++, server);
+void WifiHelper::sntpAddServer(const ip_addr_t* server){
+	sntp_setserver(WifiHelper::sntpServerCount++, server);
 }
 
 /***

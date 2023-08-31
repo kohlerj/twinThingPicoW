@@ -80,18 +80,18 @@ unsigned int State::delta(char *buf, unsigned int len, uint16_t dirtyCode){
 			if (jsonHelpers[i] != NULL) {
 				p = (this->*jsonHelpers[i])(p, len - (p - buf));
 			}
-			if (p - buf > len){
-				return 0;
-			}
-		}
+                        if (p > len + buf) {
+                                return 0;
+                        }
+                }
 	}
 	p = json_objClose( p, &l );
 	p = json_objClose( p, &l);
 	p = json_end( p, &l );
-	if (p - buf > len){
-		return 0;
-	}
-	return p - buf;
+        if (p > len + buf) {
+                return 0;
+        }
+        return p - buf;
 }
 
 /***
@@ -114,17 +114,17 @@ unsigned int State::state(char *buf, unsigned int len) {
 		if (jsonHelpers[i] != NULL) {
 			p = (this->*jsonHelpers[i])(p, len - (p - buf));
 		}
-		if (p - buf > len){
-			return 0;
-		}
-	}
-	p = json_objClose( p, &l );
-	p = json_objClose( p, &l );
-	p = json_end( p, &l );
-	if (p - buf > len){
-		return 0;
-	}
-	return p - buf;
+                if (p > len + buf) {
+                        return 0;
+                }
+        }
+        p = json_objClose(p, &l);
+        p = json_objClose(p, &l);
+        p = json_end(p, &l);
+        if (p > len + buf) {
+                return 0;
+        }
+        return p - buf;
 }
 
 /***
