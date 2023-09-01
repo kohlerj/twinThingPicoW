@@ -14,39 +14,32 @@
  * Contrainer Types
  */
 
-//state of Twin, {"state"={}}
+// state of Twin, {"state"={}}
 #define TWINSTATE "state"
 
-//delta of Twin change, {"delta"={}}
+// delta of Twin change, {"delta"={}}
 #define TWINDELTA "delta"
-
 
 /***
  * Message structure - MSG
  */
 
-//TOPIC, {"topic"="....", "data"="..."}
+// TOPIC, {"topic"="....", "data"="..."}
 #define TWINTOPIC "topic"
 
-//DATA, {"topic"="....", "data"="..."}
+// DATA, {"topic"="....", "data"="..."}
 #define TWINDATA "data"
 
 /***
  * Default TOPICS
  */
 
-//ERROR - when something goes wrong on the PICO
-// {"topic"="error", "data"="..."}
+// ERROR - when something goes wrong on the PICO
+//  {"topic"="error", "data"="..."}
 #define TOPICERROR "error"
 
-//GET - request to GET current status from PICO
-// {"topic"="get", "data"=""}
+// GET - request to GET current status from PICO
+//  {"topic"="get", "data"=""}
 #define TOPICGET "get"
-
-
-
-
-
-
 
 #endif /* TWINPROTOCOL_H_ */

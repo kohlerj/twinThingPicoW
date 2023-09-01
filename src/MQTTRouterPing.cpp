@@ -16,6 +16,11 @@
 #define PONG "PONG"
 #define ALL  "ALL"
 
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "MQTT_ROUTER_PING"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
 
 /***
  * Constructor

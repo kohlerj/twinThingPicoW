@@ -15,6 +15,12 @@
 #include "freertos_agent_message.h"
 #include "freertos_command_pool.h"
 
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "MQTT_AGENT"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
+
 const char * MQTTAgent::WILLPAYLOAD = "{'online':0}";
 const char * MQTTAgent::ONLINEPAYLOAD = "{'online':1}";
 
@@ -77,8 +83,8 @@ MQTTStatus_t MQTTAgent::init(){
 											  &xStaticQueueStructure );
 
 	if (xCommandQueue.queue == NULL) {
-		LogDebug(("MQTTAgent::mqttInit ERROR Queue not initialised"));
-		return MQTTIllegalState;
+                LogDebug(("MQTTAgent::mqttInit Error queue not initialized"));
+                return MQTTIllegalState;
 	}
 	messageInterface.pMsgCtx = &xCommandQueue;
 
@@ -171,9 +177,9 @@ void MQTTAgent::credentials(const char * user, const char * passwd, const char *
 	} else {
 		this->pId = this->pUser;
 	}
-	LogInfo(("MQTT Credentials Id=%s, usr=%s\n", this->pId, this->pUser));
+        LogInfo(("MQTT Credentials Id=%s, usr=%s", this->pId, this->pUser));
 
-	if (pWillTopic == NULL){
+        if (pWillTopic == NULL){
 		pWillTopic = (char *)pvPortMalloc( MQTTTopicHelper::lenLifeCycleTopic(this->pId, MQTT_TOPIC_LIFECYCLE_OFFLINE));
 		if (pWillTopic != NULL){
 			MQTTTopicHelper::genLifeCycleTopic(pWillTopic, this->pId, MQTT_TOPIC_LIFECYCLE_OFFLINE);
@@ -205,8 +211,8 @@ bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon, boo
 	this->xPort = port;
 	this->xRecon = recon;
 	setConnState(TCPReq);
-	LogDebug(("TCP Requested\n"));
-	return true;
+        LogDebug(("TCP Requested"));
+        return true;
 }
 
 
@@ -217,15 +223,9 @@ bool MQTTAgent::mqttConnect(const char * target, uint16_t  port, bool recon, boo
 *  */
 void MQTTAgent::start(UBaseType_t priority){
 	if (init() == MQTTSuccess){
-		xTaskCreate(
-			MQTTAgent::vTask,
-			"MQTTAgent",
-			2512,
-			( void * ) this,
-			priority,
-			&xHandle
-		);
-	}
+                xTaskCreate(MQTTAgent::vTask, "MQTTAgent", 2560, (void *)this,
+                            priority, &xHandle);
+        }
 }
 
 /***
@@ -241,109 +241,107 @@ void MQTTAgent::start(UBaseType_t priority){
 * Run loop for the task
 */
  void MQTTAgent::run(){
-	 LogDebug(("MQTTAgent run\n"));
+        LogDebug(("MQTTAgent run"));
 
-	 MQTTStatus_t status;
+        MQTTStatus_t status;
 
+        for (;;) {
+                switch (xConnState) {
+                        case Offline: {
+                          break;
+                        }
+                        case TCPReq: {
+                          if (WifiHelper::isJoined()) {
+                            TCPconn();
+                          } else {
+                            LogInfo(("Network offline, awaiting reconnect"));
+                            vTaskDelay(MQTT_RECON_DELAY);
+                          }
+                          break;
+                        }
+                        case TCPConned: {
+                          LogDebug(("Attempting MQTT connection"));
+                          status = MQTTconn();
+                          if (status == MQTTSuccess) {
+                            setConnState(MQTTReq);
+                            LogDebug(("MQTT connection ok"));
+                          } else {
+                            setConnState(Offline);
+                            LogDebug(("MQTT connection failed"));
+                          }
+                          break;
+                        }
+                        case MQTTReq: {
+                          setConnState(MQTTConned);
+                          break;
+                        }
+                        case MQTTConned: {
+                          setConnState(Online);
+                          pubToTopic(pOnlineTopic, ONLINEPAYLOAD,
+                                     strlen(ONLINEPAYLOAD), 1, false);
+                          if (pRouter != NULL) {
+                            pRouter->subscribe(this);
+                          }
+                          break;
+                        }
+                        case Online: {
+                          LogDebug(("Starting command loop"));
 
-	 for(;;){
+                          status =
+                              MQTTAgent_CommandLoop(&xGlobalMqttAgentContext);
 
-		 switch(xConnState){
-		 case Offline: {
-			 break;
-		 }
-		 case TCPReq: {
-			 if (WifiHelper::isJoined()){
-				 TCPconn();
-			 } else {
-				 LogInfo(("Network offline, awaiting reconnect"));
-				 vTaskDelay(MQTT_RECON_DELAY);
-			 }
-			 break;
-		 }
-		 case TCPConned: {
-			 LogDebug(("Attempting MQTT conn\n"));
-			 status = MQTTconn();
-			 if (status == MQTTSuccess){
-				 setConnState(MQTTReq);
-				 LogDebug(("MQTTconn ok\n"));
-			 } else {
-				 setConnState(Offline);
-				 LogDebug(("MQTTConn failed\n"));
-			 }
-			 break;
-		 }
-		 case MQTTReq: {
-			 setConnState(MQTTConned);
-			 break;
-		 }
-		 case MQTTConned: {
-			 setConnState(Online);
-			 pubToTopic(pOnlineTopic, ONLINEPAYLOAD, strlen(ONLINEPAYLOAD), 1, false);
-			 if (pRouter != NULL){
-				 pRouter->subscribe(this);
-			 }
-			 break;
-		 }
-		 case Online:{
-			 LogDebug(("Starting CMD loop\n"));
+                          // The function returns on either receiving a
+                          // terminate command, undergoing network disconnection
+                          // OR encountering an error.
+                          if ((status == MQTTSuccess) &&
+                              (xGlobalMqttAgentContext.mqttContext
+                                   .connectStatus == MQTTNotConnected)) {
+                            // A terminate command was processed and MQTT
+                            // connection was closed. Need to close socket
+                            // connection.
+                            // Platform_DisconnectNetwork(
+                            // mqttAgentContext.mqttContext.transportInterface.pNetworkContext
+                            // );
+                            LogDebug(("MQTT Closed\n"));
+                            pTrans->transClose();
+                            setConnState(Offline);
+                          } else if (status == MQTTSuccess) {
+                            // Terminate command was processed but MQTT
+                            // connection was not closed. Thus, need to close
+                            // both MQTT and socket connections.
+                            LogDebug(("Terminated processed"));
+                            status = MQTT_Disconnect(
+                                &(xGlobalMqttAgentContext.mqttContext));
+                            // assert( status == MQTTSuccess );
+                            // Platform_DisconnectNetwork(
+                            // mqttAgentContext.mqttContext.transportInterface.pNetworkContext
+                            // );
+                            pTrans->transClose();
+                            setConnState(Offline);
+                          } else {
+                            // Handle error.
+                            LogDebug(("Command loop error %d", status));
+                            setConnState(Offline);
+                          }
+                          break;
+                        }
+                        case MQTTRecon: {
+                          if (WifiHelper::isJoined()) {
+                            pTrans->transClose();
+                          }
+                          vTaskDelay(MQTT_RECON_DELAY);
+                          setConnState(TCPReq);
+                          break;
+                        }
+                        default: {
+                        }
+                };
 
-			 status = MQTTAgent_CommandLoop( &xGlobalMqttAgentContext );
+                taskYIELD();
+                // vTaskDelay(1);
+        }
 
-			 // The function returns on either receiving a terminate command,
-			 // undergoing network disconnection OR encountering an error.
-			 if( ( status == MQTTSuccess ) && ( xGlobalMqttAgentContext.mqttContext.connectStatus == MQTTNotConnected ) )
-			 {
-				// A terminate command was processed and MQTT connection was closed.
-				// Need to close socket connection.
-				//Platform_DisconnectNetwork( mqttAgentContext.mqttContext.transportInterface.pNetworkContext );
-				 LogDebug(("MQTT Closed\n"));
-				 pTrans->transClose();
-				 setConnState(Offline);
-			 }
-			 else if( status == MQTTSuccess )
-			 {
-				// Terminate command was processed but MQTT connection was not
-				// closed. Thus, need to close both MQTT and socket connections.
-				 LogDebug(("Terminated processed\n"));
-				status = MQTT_Disconnect( &( xGlobalMqttAgentContext.mqttContext ) );
-				//assert( status == MQTTSuccess );
-				//Platform_DisconnectNetwork( mqttAgentContext.mqttContext.transportInterface.pNetworkContext );
-				pTrans->transClose();
-				setConnState(Offline);
-			 }
-			 else
-			 {
-				 // Handle error.
-				 LogDebug(("Command Loop error %d\n", status));
-				 setConnState(Offline);
-
-			 }
-			 break;
-		 }
-		 case MQTTRecon:{
-			 if (WifiHelper::isJoined()){
-				 pTrans->transClose();
-			 }
-			 vTaskDelay(MQTT_RECON_DELAY);
-			 setConnState(TCPReq);
-			 break;
-		 }
-		 default:{
-
-		 }
-
-		 };
-
-		 taskYIELD();
-		 //vTaskDelay(1);
-	 }
-
-
-
-	 LogError(("RUN STOPPED\n"));
-
-
+        LogError(("Run stopped"));
  }
 
 

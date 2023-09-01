@@ -31,87 +31,85 @@
 #define TWIN_DIRTY_QUEUE_LEN 10
 #endif
 
-
 class TwinTask : public StateObserver {
-public:
-	TwinTask();
-	virtual ~TwinTask();
+ public:
+  TwinTask();
+  virtual ~TwinTask();
 
-	void setStateObject(State *state);
-	State *getStateObject();
-	void setMQTTInterface(MQTTInterface *mi);
-	bool addMessage(const char * msg, size_t msgLen);
+  void setStateObject(State *state);
+  State *getStateObject();
+  void setMQTTInterface(MQTTInterface *mi);
+  bool addMessage(const char *msg, size_t msgLen);
 
-	/***
-	 *  create the vtask, will get picked up by scheduler
-	 *
-	 *  */
-	void start(UBaseType_t priority = tskIDLE_PRIORITY);
+  /***
+   *  create the vtask, will get picked up by scheduler
+   *
+   *  */
+  void start(UBaseType_t priority = tskIDLE_PRIORITY);
 
-	/***
-	 * Stop the vtask
-	 */
-	void stop();
+  /***
+   * Stop the vtask
+   */
+  void stop();
 
-	/***
-	 * Notification of a change of a state item with the State object.
-	 * @param dirtyCode - Representation of item changed within state. Used to pull back delta
-	 */
-	virtual void notifyState(uint16_t dirtyCode);
+  /***
+   * Notification of a change of a state item with the State object.
+   * @param dirtyCode - Representation of item changed within state. Used to
+   * pull back delta
+   */
+  virtual void notifyState(uint16_t dirtyCode);
 
-	/***
-	 * Get the FreeRTOS task being used
-	 * @return
-	 */
-	virtual TaskHandle_t getTask();
+  /***
+   * Get the FreeRTOS task being used
+   * @return
+   */
+  virtual TaskHandle_t getTask();
 
-	/***
-	 * Get high water for stack
-	 * @return close to zero means overflow risk
-	 */
-	virtual unsigned int getStakHighWater();
+  /***
+   * Get high water for stack
+   * @return close to zero means overflow risk
+   */
+  virtual unsigned int getStakHighWater();
 
-protected:
-	/***
-	 * Internal function used by FreeRTOS to run the task
-	 * @param pvParameters
-	 */
-	static void vTask( void * pvParameters );
+ protected:
+  /***
+   * Internal function used by FreeRTOS to run the task
+   * @param pvParameters
+   */
+  static void vTask(void *pvParameters);
 
-	/***
-	 * Internal function to run the task from within the object
-	 */
-	void run();
+  /***
+   * Internal function to run the task from within the object
+   */
+  void run();
 
-	/***
-	* Process a json message received
-	* @param str
-	*/
-	virtual void processMsg(char *str);
+  /***
+   * Process a json message received
+   * @param str
+   */
+  virtual void processMsg(char *str);
 
-	/***
-	* Process a json message received
-	* Extend this for subclass processing
-	* @param json
-	*/
-	virtual void processJson(json_t const* json);
+  /***
+   * Process a json message received
+   * Extend this for subclass processing
+   * @param json
+   */
+  virtual void processJson(json_t const *json);
 
+  MessageBufferHandle_t xMessageBuffer = NULL;
+  MQTTInterface *mqttInterface = NULL;
+  TaskHandle_t xHandle = NULL;
 
-	MessageBufferHandle_t xMessageBuffer = NULL;
-	MQTTInterface *mqttInterface = NULL;
-	TaskHandle_t xHandle = NULL;
+  State *pState = NULL;
 
+  char xMsg[STATE_MAX_MSG_LEN];
+  char *updateTopic = NULL;
 
-	State * pState = NULL;
+  // Json parsing structure buffer
+  json_t jsonBuf[MQTT_JSON_BUF_NUM];
+  unsigned int jsonBufLen = MQTT_JSON_BUF_NUM;
 
-	char xMsg[STATE_MAX_MSG_LEN];
-	char * updateTopic = NULL;
-
-	//Json parsing structure buffer
-	json_t jsonBuf[MQTT_JSON_BUF_NUM];
-	unsigned int jsonBufLen = MQTT_JSON_BUF_NUM;
-
-	QueueHandle_t xNotifyDirtyQueue;
+  QueueHandle_t xNotifyDirtyQueue;
 };
 
 #endif /* SRC_TWINTASK_H_ */

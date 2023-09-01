@@ -13,22 +13,23 @@
 #include <stdio.h>
 #define DEBUG_LINE 25
 
-Transport::Transport() {
-}
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "TRANSPORT"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
 
-Transport::~Transport() {
-}
+Transport::Transport() {}
 
-
+Transport::~Transport() {}
 
 /***
  * Required by CoreMQTT returns time in ms
  * @return
  */
-uint32_t Transport::getCurrentTime(){
-	return to_ms_since_boot(get_absolute_time ());
+uint32_t Transport::getCurrentTime() {
+  return to_ms_since_boot(get_absolute_time());
 }
-
 
 /***
  * Static function to send data through socket from buffer
@@ -37,11 +38,11 @@ uint32_t Transport::getCurrentTime(){
  * @param bytesToSend - number of bytes to send
  * @return number of bytes sent
  */
-int32_t Transport::staticSend(NetworkContext_t * pNetworkContext, const void * pBuffer, size_t bytesToSend){
-	Transport *t = (Transport *)pNetworkContext->tcpTransport;
-	return t->transSend(pNetworkContext, pBuffer, bytesToSend);
+int32_t Transport::staticSend(NetworkContext_t *pNetworkContext,
+                              const void *pBuffer, size_t bytesToSend) {
+  Transport *t = (Transport *)pNetworkContext->tcpTransport;
+  return t->transSend(pNetworkContext, pBuffer, bytesToSend);
 }
-
 
 /***
  * Read data from network socket. Non blocking returns 0 if no data
@@ -51,10 +52,11 @@ int32_t Transport::staticSend(NetworkContext_t * pNetworkContext, const void * p
  * @return number of bytes read. May be 0 as non blocking
  * Negative number indicates error
  */
-int32_t Transport::staticRead(NetworkContext_t * pNetworkContext, void * pBuffer, size_t bytesToRecv){
-	Transport *t = (Transport *)pNetworkContext->tcpTransport;
-	int32_t res = t->transRead(pNetworkContext, pBuffer, bytesToRecv);
-	return res;
+int32_t Transport::staticRead(NetworkContext_t *pNetworkContext, void *pBuffer,
+                              size_t bytesToRecv) {
+  Transport *t = (Transport *)pNetworkContext->tcpTransport;
+  int32_t res = t->transRead(pNetworkContext, pBuffer, bytesToRecv);
+  return res;
 }
 
 /***
@@ -65,65 +67,63 @@ int32_t Transport::staticRead(NetworkContext_t * pNetworkContext, void * pBuffer
  * @return
  */
 int32_t Transport::staticWriteEv(NetworkContext_t *pNetworkContext,
-		TransportOutVector_t *pIoVec, size_t ioVecCount){
-
-	int32_t sendResult = 0;
-	for (size_t i =0; i < ioVecCount; i++) {
-		int32_t r = Transport::staticSend( pNetworkContext,
-								pIoVec[i].iov_base,
-								pIoVec[i].iov_len );
-		if (r < 0){
-			return r;
-		}
-		sendResult += r;
-	}
-	return sendResult;
+                                 TransportOutVector_t *pIoVec,
+                                 size_t ioVecCount) {
+  int32_t sendResult = 0;
+  for (size_t i = 0; i < ioVecCount; i++) {
+    int32_t r = Transport::staticSend(pNetworkContext, pIoVec[i].iov_base,
+                                      pIoVec[i].iov_len);
+    if (r < 0) {
+      return r;
+    }
+    sendResult += r;
+  }
+  return sendResult;
 }
 
 /***
  * Print the buffer in hex and plain text for debugging
  */
-void Transport::debugPrintBuffer(const char *title, const void * pBuffer, size_t bytes){
-	size_t count =0;
-	size_t lineEnd=0;
-	const uint8_t *pBuf = (uint8_t *)pBuffer;
+void Transport::debugPrintBuffer(const char *title, const void *pBuffer,
+                                 size_t bytes) {
+  size_t count = 0;
+  size_t lineEnd = 0;
+  const uint8_t *pBuf = (uint8_t *)pBuffer;
 
-	printf("DEBUG: %s of size %d\n", title, bytes);
+  LogDebug(("DEBUG: %s of size %d", title, bytes));
 
-	while (count < bytes){
-		lineEnd = count + DEBUG_LINE;
-		if (lineEnd > bytes){
-			lineEnd = bytes;
-		}
+  while (count < bytes) {
+    lineEnd = count + DEBUG_LINE;
+    if (lineEnd > bytes) {
+      lineEnd = bytes;
+    }
 
-		//Print HEX DUMP
-		for (size_t i=count; i < lineEnd; i++){
-			if (pBuf[i] <= 0x0F){
-				printf("0%X ", pBuf[i]);
-			} else {
-				printf("%X ", pBuf[i]);
-			}
-		}
+    // Print HEX DUMP
+    for (size_t i = count; i < lineEnd; i++) {
+      if (pBuf[i] <= 0x0F) {
+        LogDebug(("0%X ", pBuf[i]));
+      } else {
+        LogDebug(("%X ", pBuf[i]));
+      }
+    }
 
-		//Pad for short lines
-		size_t pad = (DEBUG_LINE - (lineEnd - count)) * 3;
-		for (size_t i=0; i < pad; i++){
-			printf(" ");
-		}
+    // Pad for short lines
+    size_t pad = (DEBUG_LINE - (lineEnd - count)) * 3;
+    for (size_t i = 0; i < pad; i++) {
+      LogDebug((" "));
+    }
 
-		//Print Plain Text
-		for (size_t i=count; i < lineEnd; i++){
-			if ((pBuf[i] >= 0x20) && (pBuf[i] <= 0x7e)){
-				printf("%c", pBuf[i]);
-			} else {
-				printf(".");
-			}
-		}
+    // Print Plain Text
+    for (size_t i = count; i < lineEnd; i++) {
+      if ((pBuf[i] >= 0x20) && (pBuf[i] <= 0x7e)) {
+        LogDebug(("%c", pBuf[i]));
+      } else {
+        LogDebug(("."));
+      }
+    }
 
-		printf("\n");
+    LogDebug("\n");
 
-		count = lineEnd;
-
-	}
+    count = lineEnd;
+  }
 }
-

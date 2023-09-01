@@ -8,6 +8,12 @@
 #include "MQTTRouterTwin.h"
 #include "MQTTTopicHelper.h"
 
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "MQTT_ROUTER_TWIN"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
+
 MQTTRouterTwin::MQTTRouterTwin() {
 	// TODO Auto-generated constructor stub
 
@@ -101,14 +107,14 @@ void MQTTRouterTwin::route(const char *topic, size_t topicLen, const void * payl
 
 	if (strlen(pSetTopic) == topicLen){
 		if (memcmp(topic, pSetTopic, topicLen)==0){
-			LogDebug(("STATE SET"));
-			pTwin->addMessage((char *)payload, payloadLen);
+                        LogDebug(("Routing STATE SET"));
+                        pTwin->addMessage((char *)payload, payloadLen);
 		}
 	}
 	if (strlen(pGetTopic) == topicLen){
 		if (memcmp(topic, pGetTopic, topicLen)==0){
-			LogDebug(("STATE GET"));
-			pTwin->addMessage(MQTT_STATE_PAYLOAD_GET,
+                        LogDebug(("Routing STATE GET"));
+                        pTwin->addMessage(MQTT_STATE_PAYLOAD_GET,
 					strlen(MQTT_STATE_PAYLOAD_GET)
 					);
 		}

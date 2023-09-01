@@ -14,7 +14,11 @@
 #include "pico/stdlib.h"
 #include <errno.h>
 
-
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "TCP_TRANSPORT"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
 
 /***
  * Constructor
@@ -99,7 +103,7 @@ bool TCPTransport::transConnect(const char * host, uint16_t port){
 	xPort = port;
 
 	if (xSemaphoreTake(xHostDNSFound, TCP_TRANSPORT_WAIT) != pdTRUE){
-		LogError(("DNS Timeout on Connect: %s, %d", host, res));
+		LogError(("DNS timeout on connect: %s, %d", host, res));
 		//return false;
 	}
 
@@ -117,7 +121,7 @@ bool TCPTransport::transConnect(){
 
 	xSock = socket(AF_INET, SOCK_STREAM, 0);
 	if (xSock < 0){
-		LogError(("ERROR opening socket\n"));
+		LogError(("Error opening socket"));
 		return false;
 	}
 
@@ -130,14 +134,14 @@ bool TCPTransport::transConnect(){
 	int res = connect(xSock,(struct sockaddr *)&serv_addr,sizeof(serv_addr));
 	if (res < 0){
 		char *s = ipaddr_ntoa(&xHost);
-		LogError(("ERROR connecting %d to %s port %d\n",res, s, xPort));
+		LogError(("Error connecting %d to %s port %d",res, s, xPort));
 		return false;
 	}
 
 	int nonblock=1;
 	ioctlsocket(xSock, FIONBIO, &nonblock);
 
-	LogInfo(("Connect success\n"));
+	LogInfo(("Connect success"));
 	return true;
 }
 
@@ -183,7 +187,7 @@ void TCPTransport::dnsCB(const char *name, const ip_addr_t *ipaddr, void *callba
 void TCPTransport::dnsFound(const char *name, const ip_addr_t *ipaddr, void *callback_arg){
 	memcpy(&xHost, ipaddr, sizeof(xHost));
 
-	LogInfo(("DNS Found %s copied to xHost %s\n", ipaddr_ntoa(ipaddr), ipaddr_ntoa(&xHost)));
+	LogInfo(("DNS found %s copied to xHost %s", ipaddr_ntoa(ipaddr), ipaddr_ntoa(&xHost)));
 	xSemaphoreGiveFromISR(xHostDNSFound, NULL );
 }
 

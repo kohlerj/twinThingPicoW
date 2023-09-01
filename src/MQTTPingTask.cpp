@@ -7,6 +7,12 @@
 
 #include "MQTTPingTask.h"
 
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "MQTT_PING_TASK"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
+
 /***
 * Constructor
 */
@@ -94,8 +100,8 @@ bool MQTTPingTask::addPing(const void * payload, size_t payloadLen){
 	size_t res = xMessageBufferSend(xMessageBuffer,
 			payload, payloadLen, 0 );
 	if (res != payloadLen){
-		LogError( ("MQTTPingTask::addPing failed\n") );
-		return false;
+                LogError(("MQTTPingTask::addPing failed"));
+                return false;
 	}
 	return true;
 }

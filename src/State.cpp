@@ -12,6 +12,12 @@
 #include <stdio.h>
 #include "TwinProtocol.h"
 
+#include <logging_levels.h>
+#define LIBRARY_LOG_NAME "STATE"
+#define LIBRARY_LOG_LEVEL LOG_INFO
+#define SdkLog(X) printf X
+#include <logging_stack.h>
+
 
 #define TRNSLOT 0
 
@@ -156,7 +162,7 @@ void State::setDirty(uint16_t element){
 			notifyObservers();
 		}
 	} else {
-		printf("setDirty Too High 0x%x\n", element);
+		LogWarn(("setDirty Too High 0x%x", element));
 	}
 }
 
@@ -203,7 +209,7 @@ void State::commitTransaction(){
 	if (isDirty()){
 		notifyObservers();
 	} else {
-		LogInfo(("Transaction completed with no change to state"));
+		LogDebug(("Transaction completed with no change to state"));
 	}
 }
 
