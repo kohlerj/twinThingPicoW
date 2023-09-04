@@ -5,26 +5,29 @@
  *
  *  Created on: 21 Sept 2021
  *      Author: jondurrant
+ *
+ * 	Modified on: 4 Sept 2023
+ * 		Author: julienkohler
  */
 
-#ifndef STATEOBSERVER_H_
-#define STATEOBSERVER_H_
+#ifndef STATE_OBSERVER_H_
+#define STATE_OBSERVER_H_
 #include <stdint.h>
-
 
 /***
  * Abstract class receiving state change notifications from State objects
  */
 class StateObserver {
-public:
-	StateObserver();
-	virtual ~StateObserver();
+ public:
+  StateObserver();
+  virtual ~StateObserver();
 
-	/***
-	 * Notification of a change of a state item with the State object.
-	 * @param dirtyCode - Representation of item changed within state. Used to pull back delta
-	 */
-	virtual void notifyState(uint16_t dirtyCode)=0;
+  /***
+   * Notification of a change of a state item with the State object.
+   * @param dirty_code - Representation of item changed within state. Used
+   * to pull back delta
+   */
+  virtual void NotifyState(uint16_t dirty_code) = 0;
 };
 
-#endif /* STATEOBSERVER_H_ */
+#endif /* STATE_OBSERVER_H_ */
