@@ -6,7 +6,7 @@
  */
 
 #include "TwinTask.h"
-#include "MQTTTopicHelper.h"
+#include "TwinTopicHelper.h"
 #include "TwinProtocol.h"
 #include <cstring>
 
@@ -16,130 +16,126 @@
 #define SdkLog(X) printf X
 #include <logging_stack.h>
 
-TwinTask::TwinTask() {
-  xNotifyDirtyQueue = xQueueCreate(TWIN_DIRTY_QUEUE_LEN, sizeof(uint16_t));
+static constexpr uint8_t kDepthDirtyQueue = 10;
 
-  if (xNotifyDirtyQueue == NULL) {
-    LogError(("Can't create queue"));
+/***
+ * Constructor
+ */
+TwinTask::TwinTask() : Agent("TwinTask", 512, 3, 0x03) {
+  notify_dirty_queue_ = new Queue(kDepthDirtyQueue, sizeof(uint16_t));
+
+  x_message_buffer_ = xMessageBufferCreate(kMaxStateMessageLength);
+  if (x_message_buffer_ == nullptr) {
+    LogError(("Create message buffer failed"));
+    return;
   }
+
+  Start();
 }
 
+/***
+ * Destructor
+ */
 TwinTask::~TwinTask() {
-  stop();
-  if (updateTopic != NULL) {
-    vPortFree(updateTopic);
-    updateTopic = NULL;
+  if (update_topic_ != nullptr) {
+    vPortFree(update_topic_);
+    update_topic_ = nullptr;
   }
-  if (xNotifyDirtyQueue != NULL) {
-    vQueueDelete(xNotifyDirtyQueue);
+
+  delete notify_dirty_queue_;
+
+  if (x_message_buffer_ != nullptr) {
+    vMessageBufferDelete(x_message_buffer_);
+    x_message_buffer_ = nullptr;
   }
 }
 
-void TwinTask::setStateObject(State *state) {
-  pState = state;
-  pState->attach(this);
+/***
+ * Set the state object to be used
+ * @param state
+ */
+void TwinTask::SetStateObject(State *state) {
+  p_state_ = state;
+  p_state_->Attach(this);
 }
 
-State *TwinTask::getStateObject() { return pState; }
+/***
+ * Get the state object
+ * @return
+ */
+State *TwinTask::GetStateObject() { return p_state_; }
 
-void TwinTask::setMQTTInterface(MQTTInterface *mi) {
-  mqttInterface = mi;
-  if (updateTopic == NULL) {
-    updateTopic =
-        (char *)pvPortMalloc(MQTTTopicHelper::lenThingUpdate(mi->getId()));
-    if (updateTopic != NULL) {
-      MQTTTopicHelper::getThingUpdate(updateTopic, mi->getId());
+/***
+ * Set the communication interface to be used
+ * @param comm_interface
+ */
+void TwinTask::SetCommunicationInterface(CommInterface *comm_interface) {
+  comm_interface_ = comm_interface_;
+  if (update_topic_ == nullptr) {
+    update_topic_ = (char *)pvPortMalloc(
+        TwinTopicHelper::GetInstance()->GetStateUpdateTopicLength(
+            comm_interface_->GetId()));
+    if (update_topic_ != nullptr) {
+      TwinTopicHelper::GetInstance()->GetStateUpdateTopic(
+          update_topic_, comm_interface_->GetId());
     } else {
-      LogError(("Allocated failed"));
+      LogError(("Update topic allocation failed"));
     }
   }
 }
 
-bool TwinTask::addMessage(const char *msg, size_t msgLen) {
-  if (xMessageBuffer != NULL) {
-    size_t res = xMessageBufferSend(xMessageBuffer, msg, msgLen, 0);
-    if (res != msgLen) {
-      LogError(("addMessage failed. Msg len:%d  Buf:%d Msg:%s\n", msgLen,
-                xMessageBufferSpacesAvailable(xMessageBuffer), msg));
+/***
+ * Add a message to the message buffer
+ * @param msg
+ * @param msg_len
+ * @return
+ */
+bool TwinTask::AddMessage(const char *msg, size_t msg_len) {
+  if (x_message_buffer_ != nullptr) {
+    size_t res = xMessageBufferSend(x_message_buffer_, msg, msg_len, 0);
+    if (res != msg_len) {
+      LogError(("AddMessage failed. Msg len:%d  Buf:%d Msg:%s\n", msg_len,
+                xMessageBufferSpacesAvailable(x_message_buffer_), msg));
       return false;
     }
   } else {
-    LogError(("No Message Buf"));
+    LogError(("No message buffer was created"));
     return false;
   }
-  // LogDebug(("addMessage succeed(%d):%s\n", msgLen, msg));
   return true;
-}
-
-/***
- *  create the vtask, will get picked up by scheduler
- *
- *  */
-void TwinTask::start(UBaseType_t priority) {
-  xMessageBuffer = xMessageBufferCreate(STATE_MSG_BUF_LEN);
-  if (xMessageBuffer == NULL) {
-    LogError(("Create buf failed"));
-    return;
-  }
-  if (xMessageBuffer != NULL) {
-    xTaskCreate(TwinTask::vTask, "TwinTask", 512, (void *)this, priority,
-                &xHandle);
-  }
-}
-
-/***
- * Stop the vtask
- */
-void TwinTask::stop() {
-  if (xHandle != NULL) {
-    vTaskDelete(xHandle);
-    xHandle = NULL;
-  }
-
-  if (xMessageBuffer != NULL) {
-    vMessageBufferDelete(xMessageBuffer);
-    xMessageBuffer = NULL;
-  }
-}
-
-/***
- * Internal function used by FreeRTOS to run the task
- * @param pvParameters
- */
-void TwinTask::vTask(void *pvParameters) {
-  TwinTask *task = (TwinTask *)pvParameters;
-  task->run();
 }
 
 /***
  * Internal function to run the task from within the object
  */
-void TwinTask::run() {
-  uint16_t dirtyCode;
+void TwinTask::Run() {
+  uint16_t dirty_code;
 
-  for (;;) {
-    if (xMessageBufferIsEmpty(xMessageBuffer) == pdTRUE) {
+  while (true) {
+    // Handle incoming requests
+    if (xMessageBufferIsEmpty(x_message_buffer_) == pdTRUE) {
       taskYIELD();
     } else {
-      vTaskDelay(20);
-      size_t size =
-          xMessageBufferReceive(xMessageBuffer, xMsg, STATE_MAX_MSG_LEN, 0);
+      Delay(20);
+      size_t size = xMessageBufferReceive(x_message_buffer_, message_,
+                                          kMaxStateMessageLength, 0);
       if (size > 0) {
-        if (pState != NULL) {
-          processMsg(xMsg);
+        if (p_state_ != nullptr) {
+          ProcessMessage(message_);
         }
       }
     }
 
-    if (xQueueReceive(xNotifyDirtyQueue, (void *)&dirtyCode, 0) == pdTRUE) {
-      if (mqttInterface != NULL) {
-        unsigned int i;
-
-        i = pState->delta(xMsg, STATE_MAX_MSG_LEN, dirtyCode);
-        if (i == 0) {
-          LogError(("Buf overrun"));
+    // Handle delta publishing
+    if (notify_dirty_queue_->Dequeue((void *)&dirty_code, 0)) {
+      if (comm_interface_ != nullptr) {
+        uint16_t tmp;
+        tmp = p_state_->GetDelta(message_, kMaxStateMessageLength, dirty_code);
+        if (tmp == 0) {
+          LogError(("Buffer overrun"));
         }
-        mqttInterface->pubToTopic(updateTopic, xMsg, strlen(xMsg));
+
+        comm_interface_->PubToTopic(update_topic_, message_, strlen(message_));
       }
     }
   }
@@ -149,41 +145,45 @@ void TwinTask::run() {
  * Process a json message received
  * @param str
  */
-void TwinTask::processMsg(char *str) {
-  json_t const *json = json_create(str, jsonBuf, jsonBufLen);
-  if (!json) {
-    LogError(("json create. %s", str));
+void TwinTask::ProcessMessage(char *str) {
+  json_t const *json = json_create(str, json_buffer_, json_buffer_length_);
+  if (json == nullptr) {
+    LogError(("Error creating json buffer for %s", str));
     return;
   }
 
-  json_t const *delta = json_getProperty(json, TWINDELTA);
-  if (!delta) {
-    delta = json_getProperty(json, TWINSTATE);
+  // Delta processing
+  json_t const *delta = json_getProperty(json, kTwinDeltaKey);
+
+  // If no delta then check for state processing
+  if (delta == nullptr) {
+    delta = json_getProperty(json, kTwinStateKey);
   }
 
-  if (delta) {
-    pState->startTransaction();
-    pState->updateFromJson(delta);
-    pState->commitTransaction();
+  // Handle delta or state
+  if (delta != nullptr) {
+    p_state_->StartTransaction();
+    p_state_->UpdateFromJson(delta);
+    p_state_->CommitTransaction();
   }
 
-  // GET Processing
-  if (!delta) {
-    delta = json_getProperty(json, MQTT_STATE_TOPIC_GET);
-    if (delta) {
+  // Get processing
+  if (delta == nullptr) {
+    delta = json_getProperty(json, TwinTopicHelper::kStateGetSubtopic);
+    if (delta != nullptr) {
       LogDebug(("Handling Get"));
-      pState->state(xMsg, STATE_MAX_MSG_LEN);
-      mqttInterface->pubToTopic(updateTopic, xMsg, strlen(xMsg), 1);
+      p_state_->GetState(message_, kMaxStateMessageLength);
+      comm_interface_->PubToTopic(update_topic_, message_, strlen(message_), 1);
     }
   }
 
-  processJson(json);
+  ProcessJsonMessage(json);
 
-  if (pState != NULL) {
-    if (pState->isDirty()) {
+  if (p_state_ != nullptr) {
+    if (p_state_->IsStateDirty()) {
       LogDebug(("State is dirty so sending delta"));
-      pState->delta(xMsg, STATE_MAX_MSG_LEN);
-      mqttInterface->pubToTopic(updateTopic, xMsg, strlen(xMsg), 1);
+      p_state_->GetDelta(message_, kMaxStateMessageLength);
+      comm_interface_->PubToTopic(update_topic_, message_, strlen(message_), 1);
     } else {
       LogDebug(("State clean after processing json"));
     }
@@ -195,35 +195,18 @@ void TwinTask::processMsg(char *str) {
  * Extend this for subclass processing
  * @param json
  */
-void TwinTask::processJson(json_t const *json) {
+void TwinTask::ProcessJsonMessage(json_t const *json) {
   // NOP
 }
 
 /***
  * Notification of a change of a state item with the State object.
- * @param dirtyCode - Representation of item changed within state. Used to pull
+ * @param dirty_code - Representation of item changed within state. Used to pull
  * back delta
  */
-void TwinTask::notifyState(uint16_t dirtyCode) {
+void TwinTask::NotifyState(uint16_t dirty_code) {
   // Queue dirty code to be handled from within the task
-  BaseType_t xHigherPriorityTaskWoken;
-  xQueueSendToBackFromISR(xNotifyDirtyQueue, &dirtyCode,
-                          &xHigherPriorityTaskWoken);
-}
-
-/***
- * Get the FreeRTOS task being used
- * @return
- */
-TaskHandle_t TwinTask::getTask() { return xHandle; }
-
-/***
- * Get high water for stack
- * @return close to zero means overflow risk
- */
-unsigned int TwinTask::getStakHighWater() {
-  if (xHandle != NULL)
-    return uxTaskGetStackHighWaterMark(xHandle);
-  else
-    return 0;
+  BaseType_t x_higher_priority_task_woken;
+  notify_dirty_queue_->EnqueueFromISR((void *)&dirty_code,
+                                      &x_higher_priority_task_woken);
 }

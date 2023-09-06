@@ -4,112 +4,110 @@
  *
  *  Created on: 22 Nov 2021
  *      Author: jondurrant
+ *  Modified on: 4 Sept 2023
+ *      Author: julienkohler
  */
 
-#ifndef SRC_TWINTASK_H_
-#define SRC_TWINTASK_H_
+#ifndef TWIN_TASK_H_
+#define TWIN_TASK_H_
 
 #include "State.h"
-#include "MQTTInterface.h"
-#include "MQTTConfig.h"
 #include "StateObserver.h"
 #include <FreeRTOS.h>
 #include <message_buffer.h>
 #include <task.h>
-#include <queue.h>
+#include "queue.hpp"
 #include <stdlib.h>
 #include "tiny-json.h"
+#include "Agent.h"
+#include "CommInterface.h"
 
-#ifndef STATE_MSG_BUF_LEN
-#define STATE_MSG_BUF_LEN 767
-#endif
-#ifndef STATE_MAX_MSG_LEN
-#define STATE_MAX_MSG_LEN 256
-#endif
+#include "TwinTopicHelper.h"
 
-#ifndef TWIN_DIRTY_QUEUE_LEN
-#define TWIN_DIRTY_QUEUE_LEN 10
-#endif
+static constexpr uint8_t kMaxStateMessageLength = 255;
+static constexpr uint8_t kMaxNumberOfJsonObjects = 25;
 
-class TwinTask : public StateObserver {
+static constexpr char *kTwinDeltaKey = "delta";
+static constexpr char *kTwinStateKey = "state";
+
+class TwinTask : public Agent, StateObserver {
  public:
+  /***
+   * Constructor
+   */
   TwinTask();
+
+  /***
+   * Destructor
+   */
   virtual ~TwinTask();
 
-  void setStateObject(State *state);
-  State *getStateObject();
-  void setMQTTInterface(MQTTInterface *mi);
-  bool addMessage(const char *msg, size_t msgLen);
-
   /***
-   *  create the vtask, will get picked up by scheduler
-   *
-   *  */
-  void start(UBaseType_t priority = tskIDLE_PRIORITY);
-
-  /***
-   * Stop the vtask
+   * @brief Set the state object to be used
+   * @param state
    */
-  void stop();
+  void SetStateObject(State *state);
+
+  /***
+   * @brief Get the state object
+   * @return
+   */
+  State *GetStateObject();
+
+  /***
+   * @brief Set the communication interface to be used
+   * @param comm_interface
+   */
+  void SetCommunicationInterface(CommInterface *comm_interface);
+
+  /***
+   * @brief Add message to the message buffer
+   * @param msg
+   * @param msg_len
+   * @return
+   */
+  bool AddMessage(const char *msg, size_t msg_len);
 
   /***
    * Notification of a change of a state item with the State object.
-   * @param dirtyCode - Representation of item changed within state. Used to
+   * @param dirty_code - Representation of item changed within state. Used to
    * pull back delta
    */
-  virtual void notifyState(uint16_t dirtyCode);
-
-  /***
-   * Get the FreeRTOS task being used
-   * @return
-   */
-  virtual TaskHandle_t getTask();
-
-  /***
-   * Get high water for stack
-   * @return close to zero means overflow risk
-   */
-  virtual unsigned int getStakHighWater();
+  virtual void NotifyState(uint16_t dirty_code);
 
  protected:
   /***
-   * Internal function used by FreeRTOS to run the task
-   * @param pvParameters
-   */
-  static void vTask(void *pvParameters);
-
-  /***
    * Internal function to run the task from within the object
    */
-  void run();
+  void Run();
 
   /***
    * Process a json message received
    * @param str
    */
-  virtual void processMsg(char *str);
+  virtual void ProcessMessage(char *str);
 
   /***
    * Process a json message received
    * Extend this for subclass processing
    * @param json
    */
-  virtual void processJson(json_t const *json);
+  virtual void ProcessJsonMessage(json_t const *json);
 
-  MessageBufferHandle_t xMessageBuffer = NULL;
-  MQTTInterface *mqttInterface = NULL;
-  TaskHandle_t xHandle = NULL;
+  MessageBufferHandle_t x_message_buffer;
+  Queue *notify_dirty_queue;
 
-  State *pState = NULL;
+  CommInterface *comm_interface;
 
-  char xMsg[STATE_MAX_MSG_LEN];
-  char *updateTopic = NULL;
+  State *p_state = nullptr;
 
-  // Json parsing structure buffer
-  json_t jsonBuf[MQTT_JSON_BUF_NUM];
-  unsigned int jsonBufLen = MQTT_JSON_BUF_NUM;
+  char message[kMaxStateMessageLength];
+  char *update_topic = nullptr;
 
-  QueueHandle_t xNotifyDirtyQueue;
+  json_t json_buffer[kMaxNumberOfJsonObjects];
+  uint8_t json_buffer_length = kMaxNumberOfJsonObjects;
+
+  TwinTopicHelper *topic_helper;
 };
 
-#endif /* SRC_TWINTASK_H_ */
+#endif /* TWIN_TASK_H_ */
