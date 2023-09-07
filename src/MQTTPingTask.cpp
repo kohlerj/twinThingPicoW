@@ -85,9 +85,9 @@ void MQTTPingTask::stop(){
  * Internal function used by FreeRTOS to run the task
  * @param pvParameters
  */
-void MQTTPingTask::vTask( void * pvParameters ){
-	MQTTPingTask *task = (MQTTPingTask *) pvParameters;
-	task->run();
+void MQTTPingTask::vTask(void *pv_parameters) {
+        MQTTPingTask *task = (MQTTPingTask *)pv_parameters;
+        task->run();
 }
 
 /***
@@ -96,16 +96,15 @@ void MQTTPingTask::vTask( void * pvParameters ){
 * @param payloadLen
 * @return
 */
-bool MQTTPingTask::addPing(const void * payload, size_t payloadLen){
-	size_t res = xMessageBufferSend(xMessageBuffer,
-			payload, payloadLen, 0 );
-	if (res != payloadLen){
+bool MQTTPingTask::addPing(const void *payload, size_t payload_len) {
+        size_t res =
+            xMessageBufferSend(xMessageBuffer, payload, payload_len, 0);
+        if (res != payload_len) {
                 LogError(("MQTTPingTask::addPing failed"));
                 return false;
-	}
-	return true;
+        }
+        return true;
 }
-
 
 /***
 * Internal function to run the task from within the object

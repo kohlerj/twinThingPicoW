@@ -29,13 +29,16 @@ static constexpr uint8_t kMaxNumberOfJsonObjects = 25;
 
 static constexpr char *kTwinDeltaKey = "delta";
 static constexpr char *kTwinStateKey = "state";
+static constexpr char *kTwinGetKey = "get";
+static constexpr char *kTwinGetPayload = "{\"get\":1}";
+static constexpr uint8_t kTwinGetPayloadLength = strlen(kTwinGetPayload);
 
 class TwinTask : public Agent, StateObserver {
  public:
   /***
    * Constructor
    */
-  TwinTask();
+  TwinTask(CommInterface *comm_interface);
 
   /***
    * Destructor
@@ -55,18 +58,20 @@ class TwinTask : public Agent, StateObserver {
   State *GetStateObject();
 
   /***
-   * @brief Set the communication interface to be used
-   * @param comm_interface
-   */
-  void SetCommunicationInterface(CommInterface *comm_interface);
-
-  /***
    * @brief Add message to the message buffer
    * @param msg
    * @param msg_len
    * @return
    */
   bool AddMessage(const char *msg, size_t msg_len);
+
+  /***
+   * @brief Add get message to the message buffer
+   * @return
+   */
+  bool AddGetMessage() {
+    return AddMessage(kTwinGetPayload, kTwinGetPayloadLength);
+  }
 
   /***
    * Notification of a change of a state item with the State object.
@@ -81,18 +86,18 @@ class TwinTask : public Agent, StateObserver {
    */
   void Run();
 
+ private:
+  /***
+   * @brief Set the communication interface to be used
+   * @param comm_interface
+   */
+  void SetCommunicationInterface(CommInterface *comm_interface);
+
   /***
    * Process a json message received
    * @param str
    */
   virtual void ProcessMessage(char *str);
-
-  /***
-   * Process a json message received
-   * Extend this for subclass processing
-   * @param json
-   */
-  virtual void ProcessJsonMessage(json_t const *json);
 
   MessageBufferHandle_t x_message_buffer;
   Queue *notify_dirty_queue;

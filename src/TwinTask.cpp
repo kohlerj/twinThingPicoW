@@ -21,7 +21,8 @@ static constexpr uint8_t kDepthDirtyQueue = 10;
 /***
  * Constructor
  */
-TwinTask::TwinTask() : Agent("TwinTask", 512, 3, 0x03) {
+TwinTask::TwinTask(CommInterface *comm_interface)
+    : Agent("TwinTask", 512, 3, 0x03) {
   notify_dirty_queue_ = new Queue(kDepthDirtyQueue, sizeof(uint16_t));
 
   x_message_buffer_ = xMessageBufferCreate(kMaxStateMessageLength);
@@ -29,6 +30,8 @@ TwinTask::TwinTask() : Agent("TwinTask", 512, 3, 0x03) {
     LogError(("Create message buffer failed"));
     return;
   }
+
+  SetCommunicationInterface(comm_interface);
 
   Start();
 }
@@ -169,7 +172,7 @@ void TwinTask::ProcessMessage(char *str) {
 
   // Get processing
   if (delta == nullptr) {
-    delta = json_getProperty(json, TwinTopicHelper::kStateGetSubtopic);
+    delta = json_getProperty(json, kTwinGetKey);
     if (delta != nullptr) {
       LogDebug(("Handling Get"));
       p_state_->GetState(message_, kMaxStateMessageLength);

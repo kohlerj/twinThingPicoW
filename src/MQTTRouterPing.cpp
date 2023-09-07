@@ -100,9 +100,10 @@ MQTTRouterPing::~MQTTRouterPing() {
  * @param payloadLen
  * @param interface
  */
-void MQTTRouterPing::route(const char *topic, size_t topicLen, const void * payload, size_t payloadLen, MQTTInterface *interface){
-
-	LogInfo( ("MQTTRouterPing(%.*s[%d]: %.*s[%d])\n",topicLen,
+void MQTTRouterPing::route(const char *topic, size_t topic_len,
+                           const void *payload, size_t payload_len,
+                           MQTTInterface *interface) {
+        LogInfo( ("MQTTRouterPing(%.*s[%d]: %.*s[%d])\n",topicLen,
 			topic, topicLen, payloadLen, (char *)payload, payloadLen) );
 
 	if (allPingTopic == NULL){
@@ -112,16 +113,16 @@ void MQTTRouterPing::route(const char *topic, size_t topicLen, const void * payl
 	if (pingTask == NULL){
 		return;
 	}
-	if (strlen(pingTopic) == topicLen){
-		if (memcmp(topic, pingTopic, topicLen)==0){
-			pingTask->addPing(payload, payloadLen);
-		}
-	}
-	if (strlen(allPingTopic) == topicLen){
-		if (memcmp(topic, allPingTopic, topicLen)==0){
-			pingTask->addPing(payload, payloadLen);
-		}
-	}
+        if (strlen(pingTopic) == topic_len) {
+                if (memcmp(topic, pingTopic, topic_len) == 0) {
+                        pingTask->addPing(payload, payload_len);
+                }
+        }
+        if (strlen(allPingTopic) == topic_len) {
+                if (memcmp(topic, allPingTopic, topic_len) == 0) {
+                        pingTask->addPing(payload, payload_len);
+                }
+        }
 }
 
 /***
