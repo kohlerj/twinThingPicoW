@@ -714,16 +714,13 @@ MQTTRouter* MQTTAgent::getRouter()  {
 * Set the rotuer object
 * @param pRouter
 */
-void MQTTAgent::setRouter( MQTTRouter *pRouter) {
-	this->pRouter = pRouter;
+void MQTTAgent::setRouter(const MQTTRouter *pRouter) {
+        this->pRouter = pRouter;
 
 	if (xConnState == Online){
 		pRouter->subscribe(this);
 	}
 }
-
-
-
 
 /***
 * Route a message to the router object
