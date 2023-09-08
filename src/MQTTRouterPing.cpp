@@ -32,8 +32,8 @@ MQTTRouterPing::MQTTRouterPing() {
  * Constructor providing Id for the Thing and MQTT Interface
  * @param mi - MQTT Interface
  */
-MQTTRouterPing::MQTTRouterPing(MQTTInterface *mi) {
-	init(mi);
+MQTTRouterPing::MQTTRouterPing(CommInterface *comm_interface) {
+  init(comm_interface);
 }
 
 /***
@@ -41,30 +41,30 @@ MQTTRouterPing::MQTTRouterPing(MQTTInterface *mi) {
  * @param id = string ID of the Thing
  * @param mi = MQTT Interface
  */
-void MQTTRouterPing::init(MQTTInterface *mi) {
-	if (pingTopic == NULL){
-		pingTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingTopic(mi->getId(), PING)
-				);
-		if (pingTopic != NULL){
-			MQTTTopicHelper::genThingTopic(pingTopic, mi->getId(), PING);
-		} else {
-			LogError( ("Unable to allocate PING topic") );
-		}
-	}
+void MQTTRouterPing::init(CommInterface *comm_interface) {
+        if (pingTopic == NULL) {
+          pingTopic = (char *)pvPortMalloc(MQTTTopicHelper::lenThingTopic(
+              comm_interface->GetLocalAddress(), PING));
+          if (pingTopic != NULL) {
+            MQTTTopicHelper::genThingTopic(
+                pingTopic, comm_interface->GetLocalAddress(), PING);
+          } else {
+            LogError(("Unable to allocate PING topic"));
+          }
+        }
 
-	if (pongTopic == NULL){
-		pongTopic = (char *)pvPortMalloc(
-				MQTTTopicHelper::lenThingTopic(mi->getId(), PONG)
-				);
-		if (pongTopic != NULL){
-			MQTTTopicHelper::genThingTopic(pongTopic, mi->getId(), PONG);
-		} else {
-			LogError( ("Unable to allocate PONG topic") );
-		}
-	}
+        if (pongTopic == NULL) {
+          pongTopic = (char *)pvPortMalloc(MQTTTopicHelper::lenThingTopic(
+              comm_interface->GetLocalAddress(), PONG));
+          if (pongTopic != NULL) {
+            MQTTTopicHelper::genThingTopic(
+                pongTopic, comm_interface->GetLocalAddress(), PONG);
+          } else {
+            LogError(("Unable to allocate PONG topic"));
+          }
+        }
 
-	if (allPingTopic == NULL){
+        if (allPingTopic == NULL){
 		allPingTopic = (char *)pvPortMalloc(
 				MQTTTopicHelper::lenGroupTopic(ALL, PING)
 				);
@@ -74,7 +74,6 @@ void MQTTRouterPing::init(MQTTInterface *mi) {
 			LogError( ("Unable to allocate ALL topic") );
 		}
 	}
-
 }
 
 /***
@@ -100,7 +99,7 @@ MQTTRouterPing::~MQTTRouterPing() {
  * @param payloadLen
  * @param interface
  */
-void MQTTRouterPing::route(const char *topic, size_t topic_len,
+void MQTTRouterPing::Route(const char *topic, size_t topic_len,
                            const void *payload, size_t payload_len,
                            MQTTInterface *interface) {
         LogInfo( ("MQTTRouterPing(%.*s[%d]: %.*s[%d])\n",topicLen,
@@ -129,23 +128,22 @@ void MQTTRouterPing::route(const char *topic, size_t topic_len,
  * Use the interface to setup all the subscriptions
  * @param interface
  */
-void MQTTRouterPing::subscribe(MQTTInterface *interface){
-	if (allPingTopic == NULL){
-		init(interface);
-	}
-	interface->subToTopic(pingTopic, 1);
-	interface->subToTopic(allPingTopic, 1);
+void MQTTRouterPing::Subscribe(CommInterface *comm_interface) {
+        if (allPingTopic == NULL) {
+                init(comm_interface);
+        }
+        comm_interface->SubToTopic(pingTopic, 1);
+        comm_interface->SubToTopic(allPingTopic, 1);
 }
 
 /***
  * Set Task to use for action
  * @param p
  */
-void MQTTRouterPing::setPingTask(MQTTPingTask *p, MQTTInterface *mi){
-	pingTask = p;
+void MQTTRouterPing::setPingTask(MQTTPingTask *p,
+                                 MQTTInterface *CommInterface) {
+        pingTask = p;
 	init(mi);
 	pingTask->setPongTopic(pongTopic);
 	pingTask->setInterface(mi);
 }
-
-

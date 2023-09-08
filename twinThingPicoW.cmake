@@ -8,10 +8,9 @@ target_sources( twinThingPicoW INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/TCPTransport.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/WifiHelper.cpp
 
-    ${CMAKE_CURRENT_LIST_DIR}/src/MQTTInterface.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/MQTTRouterPing.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/MQTTPingTask.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/src/MQTTTopicHelper.cpp
+    # ${CMAKE_CURRENT_LIST_DIR}/src/MQTTRouterPing.cpp
+    # ${CMAKE_CURRENT_LIST_DIR}/src/MQTTPingTask.cpp
+    # ${CMAKE_CURRENT_LIST_DIR}/src/MQTTTopicHelper.cpp
     ${CMAKE_CURRENT_LIST_DIR}/src/MQTTAgentObserver.cpp
 )
 
