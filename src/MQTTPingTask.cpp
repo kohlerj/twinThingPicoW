@@ -100,7 +100,7 @@ bool MQTTPingTask::addPing(const void *payload, size_t payload_len) {
         size_t res =
             xMessageBufferSend(xMessageBuffer, payload, payload_len, 0);
         if (res != payload_len) {
-                LogError(("MQTTPingTask::addPing failed"));
+                LogError("MQTTPingTask::addPing failed");
                 return false;
         }
         return true;

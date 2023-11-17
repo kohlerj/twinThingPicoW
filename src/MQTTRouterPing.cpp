@@ -49,7 +49,7 @@ void MQTTRouterPing::init(CommInterface *comm_interface) {
             MQTTTopicHelper::genThingTopic(
                 pingTopic, comm_interface->GetLocalAddress(), PING);
           } else {
-            LogError(("Unable to allocate PING topic"));
+            LogError("Unable to allocate PING topic");
           }
         }
 
@@ -60,7 +60,7 @@ void MQTTRouterPing::init(CommInterface *comm_interface) {
             MQTTTopicHelper::genThingTopic(
                 pongTopic, comm_interface->GetLocalAddress(), PONG);
           } else {
-            LogError(("Unable to allocate PONG topic"));
+            LogError("Unable to allocate PONG topic");
           }
         }
 
